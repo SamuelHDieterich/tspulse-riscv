@@ -21,3 +21,16 @@ nix develop           # or: direnv allow, once per worktree
 ```
 
 `flake.nix` is generated from `flake/` by [flake-file](https://github.com/vic/flake-file), so don't edit it by hand. Run `nix run .#write-flake` after changing inputs.
+
+Entering the shell installs a pre-commit hook that formats Python, Nix and C.
+
+## Data
+
+Two dev-shell commands fetch the pinned files into `$TSPULSE_DATA`, or verify what is already there:
+
+```bash
+download-datasets     # TSB-AD-U and TSB-AD-M; --only u|m picks one
+download-weights      # tspulse-r1
+```
+
+Neither overwrites a file that fails its check unless you pass `--force`. Pass `--output DIR` to use another folder.

@@ -6,6 +6,8 @@
         # Each context is a shell of its own, because mkShell cannot merge a package list across files.
         inputsFrom = with config.devShells; [
           c
+          data
+          hooks
           python
           riscv
         ];
