@@ -34,3 +34,15 @@ download-weights      # tspulse-r1
 ```
 
 Neither overwrites a file that fails its check unless you pass `--force`. Pass `--output DIR` to use another folder.
+
+## Reference run
+
+One command runs IBM's own TSPulse pipeline on one series, with any number of channels, and saves each head's score and the ensemble:
+
+```bash
+score-series    # writes build/reference/<series>.csv under the current folder
+```
+
+Pass `--series` to pick another CSV, such as `TSB-AD-M/<file>.csv` or an absolute path, and `--output` to use another folder.
+Time and memory grow with channels, so the widest TSB-AD-M files may not fit in RAM.
+Run it from the dev shell, which provides the system libraries the wheels need.
