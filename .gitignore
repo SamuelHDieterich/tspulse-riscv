@@ -1,0 +1,38 @@
+#########
+## Nix ##
+#########
+
+.direnv/
+result
+result-*
+
+############
+## Python ##
+############
+
+.venv/
+__pycache__/
+.ruff_cache/
+
+#######
+## C ##
+#######
+
+build/
+*.o
+*.a
+*.d
+*.map
+
+############
+## RISC-V ##
+############
+
+*.elf
+
+##########
+## Data ##
+##########
+
+# Only a plain clone has this folder; the bare layout keeps it outside the repository.
+/data/
