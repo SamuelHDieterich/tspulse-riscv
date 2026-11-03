@@ -1,4 +1,4 @@
-"""The `download-datasets` and `download-weights` commands."""
+"""The `download-datasets`, `download-weights` and `download-lists` commands."""
 
 # ░█░░░▀█▀░█▀▄░█▀▄░█▀█░█▀▄░▀█▀░█▀▀░█▀▀
 # ░█░░░░█░░█▀▄░█▀▄░█▀█░█▀▄░░█░░█▀▀░▀▀█
@@ -15,6 +15,7 @@ import typer
 
 # Internal
 from download.fetch import (
+    BENCHMARK_LISTS,
     DATASETS,
     WEIGHTS,
     Failure,
@@ -87,6 +88,20 @@ def _weights(
         typer.echo(f"{pin.path}: {'downloaded' if downloaded else 'OK'}")
 
 
+def _lists(
+    force: Annotated[
+        bool, typer.Option("--force", help="Replace a file that fails its hash.")
+    ] = False,
+    output: Output = None,
+) -> None:
+    """Check the benchmark lists and IBM's scores, fetching whatever is missing."""
+
+    root = data_root(output)
+    for pin in BENCHMARK_LISTS:
+        downloaded = ensure(pin, root, force)
+        typer.echo(f"{pin.path}: {'downloaded' if downloaded else 'OK'}")
+
+
 # ░█▄█░█▀█░▀█▀░█▀█
 # ░█░█░█▀█░░█░░█░█
 # ░▀░▀░▀░▀░▀▀▀░▀░▀
@@ -107,6 +122,16 @@ def weights() -> None:
 
     try:
         typer.run(_weights)
+    except Failure as error:
+        typer.echo(str(error), err=True)
+        sys.exit(1)
+
+
+def lists() -> None:
+    """Run `download-lists`, turning a `Failure` into its message and exit code 1."""
+
+    try:
+        typer.run(_lists)
     except Failure as error:
         typer.echo(str(error), err=True)
         sys.exit(1)

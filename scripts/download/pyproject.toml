@@ -1,11 +1,11 @@
-# The Python project behind `download-datasets` and `download-weights`.
+# The Python project behind `download-datasets`, `download-weights` and `download-lists`.
 # Nix builds it from this file through package.nix; uv reads it too, to give the editor a virtualenv.
 
 # Package metadata, standard across Python tools (PEP 621)
 [project]
 name = "download"
 version = "0.1.0"
-description = "Fetch and verify the pinned TSB-AD datasets and tspulse-r1 weights."
+description = "Fetch and verify the pinned TSB-AD datasets, tspulse-r1 weights, benchmark lists and IBM scores."
 requires-python = ">=3.12,<3.13"
 # Runtime dependencies; package.nix lists the same ones from nixpkgs, which are what actually ship
 dependencies = ["typer>=0.24"]
@@ -14,6 +14,7 @@ dependencies = ["typer>=0.24"]
 [project.scripts]
 download-datasets = "download.cli:datasets"
 download-weights = "download.cli:weights"
+download-lists = "download.cli:lists"
 
 # Dependencies for working on the code, which `uv sync` installs and the package never ships (PEP 735)
 [dependency-groups]

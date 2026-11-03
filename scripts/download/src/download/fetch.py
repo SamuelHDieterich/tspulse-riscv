@@ -59,6 +59,10 @@ TIMEOUT_SECONDS = 60
 
 HUGGING_FACE = "https://huggingface.co/ibm-granite/granite-timeseries-tspulse-r1/resolve/2e64fcdc2a06d3565dfadaf0065c0ab5055f80f2"
 
+TSB_AD_LISTS = "https://raw.githubusercontent.com/TheDatumOrg/TSB-AD/303dffbfc11612995b17b06633f8c9d0ea0e38e5/Datasets/File_List"
+
+IBM_SCORES = "https://raw.githubusercontent.com/ibm-granite/granite-tsfm/09c8abf70c4f971e932c54316d1637fa1a58f2af/notebooks/hfdemo/tspulse/anomaly_detection/benchmarks"
+
 DATASETS = {
     "u": Pin(
         "datasets/TSB-AD-U/TSB-AD-U.zip",
@@ -98,6 +102,129 @@ WEIGHTS = [
         f"{HUGGING_FACE}/tspulse_overview.webp",
         295284,
         "2cfc0774815e88c19dd4f87328c1a5958b2106b861f57a8d89a3765b2b9715f0",
+    ),
+]
+
+BENCHMARK_LISTS = [
+    Pin(
+        "lists/tsb-ad/TSB-AD-U-Tuning.csv",
+        f"{TSB_AD_LISTS}/TSB-AD-U-Tuning.csv",
+        2177,
+        "7bf24d2ef834bb39ddd1c8c2b02c177339921dce694354e258ed2b77d8d5cd1c",
+    ),
+    Pin(
+        "lists/tsb-ad/TSB-AD-U-Eva.csv",
+        f"{TSB_AD_LISTS}/TSB-AD-U-Eva.csv",
+        16205,
+        "6f4e1d4ddbde195f9687f2c5a951b51faff54dda4b658d85f0c07e3e2879615a",
+    ),
+    Pin(
+        "lists/tsb-ad/TSB-AD-M-Tuning.csv",
+        f"{TSB_AD_LISTS}/TSB-AD-M-Tuning.csv",
+        912,
+        "b388541efcd8972cb2084f0aabe7c36bcf0e1ecd52adc6d0ef874afec335fa51",
+    ),
+    Pin(
+        "lists/tsb-ad/TSB-AD-M-Eva.csv",
+        f"{TSB_AD_LISTS}/TSB-AD-M-Eva.csv",
+        8110,
+        "ef6353b5aad8519fb2e5ff366ae21cf626ecd56d1a05942ac3b5c02d9e4b32a4",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-U-Tuning-time.csv",
+        f"{IBM_SCORES}/TSB-AD-U-Tuning-time.csv",
+        2961,
+        "2d8d1f4a6e01211150b847ef317e25d66e177eb642a3808a416f20b7787dd1c9",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-U-Tuning-fft.csv",
+        f"{IBM_SCORES}/TSB-AD-U-Tuning-fft.csv",
+        2961,
+        "7c3b9ce4ca577c813e6c7a9956064fbf1ad855ca4f595f2bb059ff70ce7288b3",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-U-Tuning-future.csv",
+        f"{IBM_SCORES}/TSB-AD-U-Tuning-future.csv",
+        2961,
+        "7651531ec13e3a93ff3c1dbfd0c5fe80702b6842943992bebb49776025adb710",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-U-Tuning-ensemble.csv",
+        f"{IBM_SCORES}/TSB-AD-U-Tuning-ensemble.csv",
+        2961,
+        "47998f89595abe7037cc62328ca68231373b920217ae0a5ff4d839364af6e09f",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-U-Eva-time.csv",
+        f"{IBM_SCORES}/TSB-AD-U-Eva-time.csv",
+        21821,
+        "2f0d927d58883343c452108b2599628e59fe62c382c81d6797d8630287c13b59",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-U-Eva-fft.csv",
+        f"{IBM_SCORES}/TSB-AD-U-Eva-fft.csv",
+        21821,
+        "22d810f1e39d021e058ee6a4b720c9259328b67991b42150790a054a2ad1fe51",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-U-Eva-future.csv",
+        f"{IBM_SCORES}/TSB-AD-U-Eva-future.csv",
+        21821,
+        "46a85d7b53859f9965de804e23b6732a5d9928f0140cd9db924fb168d73da725",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-U-Eva-ensemble.csv",
+        f"{IBM_SCORES}/TSB-AD-U-Eva-ensemble.csv",
+        21821,
+        "0123172d46ea66743588cb3134bccce6688df2f2e50a5f4ac9944ada0a8d7b2c",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-M-Tuning-time.csv",
+        f"{IBM_SCORES}/TSB-AD-M-Tuning-time.csv",
+        1248,
+        "0b59942ff3f26a38091e1ed2bda58db148078c000d51b01e6a6f54cbe11af8dd",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-M-Tuning-fft.csv",
+        f"{IBM_SCORES}/TSB-AD-M-Tuning-fft.csv",
+        1248,
+        "18ada9e8b2969b3b6143163c246383b4eff763d36452872e97e32e37d9fa0947",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-M-Tuning-future.csv",
+        f"{IBM_SCORES}/TSB-AD-M-Tuning-future.csv",
+        1248,
+        "35de30d65d4652d77feb8a00a76e7a24edb4fe58468e4f9ede4fa7e34b02ae63",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-M-Tuning-ensemble.csv",
+        f"{IBM_SCORES}/TSB-AD-M-Tuning-ensemble.csv",
+        1248,
+        "5d4cba22578011c13dcd104bf48b4189270d3ebdd8ae3d47eb4793c2a4eb3401",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-M-Eva-time.csv",
+        f"{IBM_SCORES}/TSB-AD-M-Eva-time.csv",
+        11005,
+        "e2446359f6eae9e553979d2e6f185f91ec9e20c2b6ad7172d5845c1cd534c0ae",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-M-Eva-fft.csv",
+        f"{IBM_SCORES}/TSB-AD-M-Eva-fft.csv",
+        11005,
+        "2fc2233ed2b333407668399d0d0cf4be2f3a3365c87e5339af0b945c697be8a4",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-M-Eva-future.csv",
+        f"{IBM_SCORES}/TSB-AD-M-Eva-future.csv",
+        11005,
+        "02bcb424da1ca747cb9a01ed90cfbfb7c9ee8c3d0afd5427814a5b6df8376c66",
+    ),
+    Pin(
+        "lists/ibm/TSB-AD-M-Eva-ensemble.csv",
+        f"{IBM_SCORES}/TSB-AD-M-Eva-ensemble.csv",
+        11005,
+        "121a0d65923271b65b0d0a679bf38dff7d829458f4e89d70f41a9206f8e0b99d",
     ),
 ]
 
