@@ -1,0 +1,46 @@
+# The Python project behind `spike-matmul`.
+# Nix builds it from this file through package.nix; uv reads it too, to give the editor a virtualenv.
+
+# Package metadata, standard across Python tools (PEP 621)
+[project]
+name = "matmul"
+version = "0.1.0"
+description = "Measure what one TSPulse pass's matrix multiplies cost under Spike."
+requires-python = ">=3.12,<3.13"
+# Runtime dependencies; package.nix lists the same ones from nixpkgs, which are what actually ship
+dependencies = ["typer>=0.24"]
+
+# Console scripts: the command calls its function in matmul.cli
+[project.scripts]
+spike-matmul = "matmul.cli:main"
+
+# Dependencies for working on the code, which `uv sync` installs and the package never ships (PEP 735)
+[dependency-groups]
+dev = ["ruff>=0.15"]
+
+# How to turn the source into a wheel; hatchling is the backend both uv and Nix call
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/matmul"]
+
+# ruff, the linter and formatter, run as `uv run ruff check .` and `uv run ruff format .`
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+# pycodestyle errors, pyflakes, import sorting, pyupgrade and bugbear
+select = ["E", "F", "I", "UP", "B"]
+# ruff format owns the width of code, and comments are never wrapped
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+# Two blank lines between the imports and the banner that follows them
+lines-after-imports = 2
+
+# pyright, the type checker behind VS Code's Python support, reads the virtualenv that `uv sync` makes here
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

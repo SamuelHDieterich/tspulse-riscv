@@ -1,0 +1,9 @@
+# clang-format, run by the pre-commit hook on every C file
+BasedOnStyle: LLVM
+# The formatter owns the width of code, and comments are never wrapped
+ReflowComments: Never
+# Long signatures list one parameter per line, so a diff touches only the changed one
+BinPackParameters: OnePerLine
+# Python's indentation, and ruff's layout for signatures and calls that don't fit on one line
+IndentWidth: 4
+AlignAfterOpenBracket: BlockIndent

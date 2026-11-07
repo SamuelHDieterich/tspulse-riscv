@@ -1,14 +1,21 @@
 {
   perSystem =
-    { pkgs, ... }:
+    { config, pkgs, ... }:
     let
       target = pkgs.pkgsCross.riscv64-embedded;
     in
     {
+      packages.matmul = pkgs.python312Packages.callPackage ../../scripts/matmul/package.nix { };
+
       devShells.riscv = pkgs.mkShell {
         packages = with pkgs; [
           spike # RISC-V ISA simulator
           dtc # device tree compiler, which Spike runs at startup
+          # Only bin/, so the package's Python dependencies stay off PYTHONPATH
+          (runCommand "matmul-bin" { } ''
+            mkdir $out
+            ln -s ${config.packages.matmul}/bin $out/bin
+          '') # spike-matmul
         ];
 
         # Neither of these can go in packages:
