@@ -3,6 +3,7 @@
   lib,
   buildPythonApplication,
   hatchling,
+  jinja2,
   typer,
 }:
 buildPythonApplication {
@@ -21,6 +22,7 @@ buildPythonApplication {
 
   build-system = [ hatchling ];
   dependencies = [
+    jinja2 # the C templates
     typer # the command line
   ];
 }

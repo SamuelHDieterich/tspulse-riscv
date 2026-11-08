@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Turn the tspulse-r1 safetensors file into the C source that compiles the weights into the program."
 requires-python = ">=3.12,<3.13"
 # Runtime dependencies; package.nix lists the same ones from nixpkgs, which are what actually ship
-dependencies = ["typer>=0.24"]
+dependencies = ["jinja2>=3.1", "typer>=0.24"]
 
 # Console scripts: each command calls its function in weights.cli
 [project.scripts]

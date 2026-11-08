@@ -8,7 +8,7 @@
         packages = with pkgs; [
           gcc # host C compiler
           gnumake # build driver
-          # Exposes only bin/, for the same reason as the download wrapper in data.nix
+          # Exposes only bin/, because the package propagates its dependencies, and Python's setup hook would put them on PYTHONPATH
           (pkgs.runCommand "weights-bin" { } ''
             mkdir $out
             ln -s ${config.packages.weights}/bin $out/bin
