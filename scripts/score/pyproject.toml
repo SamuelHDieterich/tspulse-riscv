@@ -11,7 +11,7 @@ dependencies = [
   "granite-tsfm==0.3.12", # the TSPulse model and anomaly pipeline
   "numpy", # handles the score arrays
   "pandas>=2.3.3", # reads the series and writes the scores
-  "scikit-learn>=1.7.2", # AUC-PR and the 0-1 rescale before VUS
+  "scikit-learn>=1.7.2", # AUC-PR, the 0-1 rescale before VUS, and the pipeline's standardization
   "scipy>=1.18.1", # finds the autocorrelation peaks that set the VUS window
   "statsmodels>=0.15.0", # the autocorrelation itself
   "torch==2.11.*", # runs the model
@@ -22,6 +22,8 @@ dependencies = [
 [project.scripts]
 score-series = "score.cli:main"
 score-baseline = "score.baseline:main"
+capture-reference = "score.reference:main"
+compare-reference = "score.compare:main"
 
 # Dependencies for working on the code, which `uv sync` installs and the package never ships (PEP 735)
 [dependency-groups]

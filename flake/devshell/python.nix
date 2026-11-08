@@ -4,7 +4,7 @@
     let
       python = pkgs.python312;
 
-      # uv builds this command, so it lives in a per-worktree venv. Adding that venv to PATH would expose its python too.
+      # uv builds these commands, so they live in a per-worktree venv. Adding that venv to PATH would expose its python too.
       score-series = pkgs.writeShellApplication {
         name = "score-series";
         runtimeInputs = with pkgs; [
@@ -26,6 +26,28 @@
           exec uv run --locked --project "$(git rev-parse --show-toplevel)/scripts/score" score-baseline "$@"
         '';
       };
+
+      capture-reference = pkgs.writeShellApplication {
+        name = "capture-reference";
+        runtimeInputs = with pkgs; [
+          git # finds the worktree root
+          uv # runs the command from its venv
+        ];
+        text = /* bash */ ''
+          exec uv run --locked --project "$(git rev-parse --show-toplevel)/scripts/score" capture-reference "$@"
+        '';
+      };
+
+      compare-reference = pkgs.writeShellApplication {
+        name = "compare-reference";
+        runtimeInputs = with pkgs; [
+          git # finds the worktree root
+          uv # runs the command from its venv
+        ];
+        text = /* bash */ ''
+          exec uv run --locked --project "$(git rev-parse --show-toplevel)/scripts/score" compare-reference "$@"
+        '';
+      };
     in
     {
       devShells.python = pkgs.mkShell {
@@ -34,6 +56,8 @@
           uv # manages the virtualenv and the lock file
           score-series # scores one series with the original model
           score-baseline # scores many series with IBM's metric, for the accuracy baseline
+          capture-reference # saves every inner output on fixed windows, to check the C port against
+          compare-reference # shows where a dump first differs from the reference
         ];
 
         # inputsFrom forwards shellHook but not env, so these are exported here.
