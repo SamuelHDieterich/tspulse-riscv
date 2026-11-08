@@ -86,3 +86,27 @@ The projection is a floor, since it leaves out GELU, softmax, LayerNorm and the 
 A rerun skips setups that already finished, unless you pass `--force`.
 
 Instruction counts are the same on every machine, but Spike's speed is not. `--machine NAME` labels a computer's results, so several computers can share one folder. It defaults to the hostname.
+
+## C port
+
+The C code lives in `tspulse/`, one folder per role:
+
+- `kernels/` holds the math the modules share.
+- `modules/` has one function per PyTorch module.
+- `weights/` has the struct that mirrors the PyTorch module tree, and the table of names the checks walk.
+- `io/` has the `.tdump` writer.
+- `checks/` has programs that only verify.
+- `build/` holds objects and executables per target, and the generated weights both targets share.
+
+The weights are compiled in. `export-weights` reads `model.safetensors` and writes the C that fills `struct tspulse_weights`, plus a table for the checks and a `.tdump` of the same values. It leaves out the frequency signature head, which the baseline never runs, so the program carries 226 tensors and 4,045,272 bytes of read-only data.
+
+From `tspulse/`, inside the dev shell and after `download-weights`:
+
+```bash
+make                    # builds the weight check for the host
+make check              # runs it and compares its dump with the one `export-weights` wrote from the safetensors file, bit for bit
+make TARGET=rv64 check  # the same under Spike
+make clean
+```
+
+The generated files are rebuilt only when the safetensors file or `export-weights` changes (after re-entering the dev shell). If you delete one by hand, run `make clean`.
