@@ -15,6 +15,17 @@
           exec uv run --locked --project "$(git rev-parse --show-toplevel)/scripts/score" score-series "$@"
         '';
       };
+
+      score-baseline = pkgs.writeShellApplication {
+        name = "score-baseline";
+        runtimeInputs = with pkgs; [
+          git # finds the worktree root, and records its commit with each result
+          uv # runs the command from its venv
+        ];
+        text = /* bash */ ''
+          exec uv run --locked --project "$(git rev-parse --show-toplevel)/scripts/score" score-baseline "$@"
+        '';
+      };
     in
     {
       devShells.python = pkgs.mkShell {
@@ -22,6 +33,7 @@
           python # runs the original model
           uv # manages the virtualenv and the lock file
           score-series # scores one series with the original model
+          score-baseline # scores many series with IBM's metric, for the accuracy baseline
         ];
 
         # inputsFrom forwards shellHook but not env, so these are exported here.
