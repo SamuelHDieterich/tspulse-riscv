@@ -15,17 +15,16 @@ import numpy as np
 import typer
 
 # Internal
-from score import noise, rows, tdump
-from score.capture import flat, load
+from score import noise, rows, series_check, tdump
+from score.capture import flat
+from score.layout import DATASETS_FOLDER, REFERENCE_FOLDER
 from score.reference import WINDOWS
+from score.series_check import VUS_TOLERANCE, write_rows
 
 
 # ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀█░█▀█░▀█▀░█▀▀
 # ░█░░░█░█░█░█░▀▀█░░█░░█▀█░█░█░░█░░▀▀█
 # ░▀▀▀░▀▀▀░▀░▀░▀▀▀░░▀░░▀░▀░▀░▀░░▀░░▀▀▀
-
-# Whether a record missing from the dump without being on the expected list, or present although it is, fails the check
-FAIL_ON_UNEXPECTED_MISSING = False
 
 # Records the C port never writes, matched by prefix after the copy: the second `get_fft` on the unmasked input and the softmax mapping the baseline skips
 EXPECTED_MISSING_EVERY_COPY = (
@@ -61,7 +60,6 @@ EXPECTED_MISSING_HIDDEN = (
 # float64 records, which the C writer can't hold
 EXPECTED_MISSING_NO_COPY = ("input.raw", "input.mean", "input.std")
 
-REFERENCE_FOLDER = "reference"
 FLAT_FOLDER = "flat"
 PLAIN_COPY = "plain"
 CHECK_FOLDER = Path("tspulse/build/check-model")
@@ -113,14 +111,14 @@ class WindowResult:
 
     @property
     def ok(self) -> bool:
-        """Whether the window passes: nothing failed or extra, something compared, and no error."""
+        """Whether the window passes: nothing failed, extra, unexpectedly missing or unexpectedly present, something compared, and no error."""
 
-        unexpected = bool(self.unexpected_missing or self.unexpected_present)
         return not (
             self.error
             or self.failed
             or self.extra
-            or (FAIL_ON_UNEXPECTED_MISSING and unexpected)
+            or self.unexpected_missing
+            or self.unexpected_present
             or self.passed == 0
         )
 
@@ -368,8 +366,20 @@ def _check_model(
         str | None,
         typer.Option(help="Only compare records whose name starts with this."),
     ] = None,
+    series: Annotated[
+        str | None,
+        typer.Option(
+            help=f"After the 7 windows, also check that the C detects anomalies on this whole series, by CSV name without `.csv`, as well as the Python baseline: VUS-PR within {VUS_TOLERANCE:g} per score. The 7 windows stay the precise check."
+        ),
+    ] = None,
+    clean: Annotated[
+        Path | None,
+        typer.Option(
+            help="With --series, the clean build of the C program, `tspulse`."
+        ),
+    ] = None,
 ) -> None:
-    """Run the C program on the 7 reference windows and compare what it dumps with the reference.
+    """Run the C program on the 7 reference windows and compare what it dumps with the reference, then optionally a whole series.
 
     Parameters
     ----------
@@ -381,20 +391,31 @@ def _check_model(
         The folder for the row files, errors and dumps.
     only : str or None
         Only compare records whose name starts with this.
+    series : str or None
+        The name of a series to check as a whole.
+    clean : Path or None
+        The clean build of the C program.
 
     Raises
     ------
     typer.Exit
-        With code 1 when the data folder or a file is missing, or any window fails.
+        With code 1 when the data folder or a file is missing, an option is wrong, any window fails, or the series' detection differs.
     """
 
-    # Step 1: the data folder, the program and the pooled noise
+    # Step 1: the data folder, the programs and the pooled noise
     if data is None:
         typer.echo("No data folder: set $TSPULSE_DATA or pass --data.", err=True)
         raise typer.Exit(1)
-    if not binary.is_file():
-        typer.echo(f"Not found: {binary}", err=True)
+    if series is not None and clean is None:
+        typer.echo("--series needs --clean.", err=True)
         raise typer.Exit(1)
+    if series is None and clean is not None:
+        typer.echo("--clean needs --series.", err=True)
+        raise typer.Exit(1)
+    for program in (binary, clean):
+        if program is not None and not program.is_file():
+            typer.echo(f"Not found: {program}", err=True)
+            raise typer.Exit(1)
     reference_folder = data / REFERENCE_FOLDER
     try:
         ratios = noise.read_pooled(reference_folder / "noise.csv")
@@ -404,17 +425,24 @@ def _check_model(
     work = work or _work_folder()
     work.mkdir(parents=True, exist_ok=True)
 
+    # The series' files are checked first, so a typo does not cost the 7-window stage
+    prepared = series_check.prepare(data, series) if series is not None else None
+
     # Step 2: one run per reference window. Each series' row file holds the whole series and is written the first time one of its windows comes up, so the program's skip of earlier windows is exercised too
     results = []
     written: set[str] = set()
-    for series, index in WINDOWS:
-        folder = series.stem if series else FLAT_FOLDER
+    for reference_series, index in WINDOWS:
+        folder = reference_series.stem if reference_series else FLAT_FOLDER
         label = f"{folder}/w{index}"
         rows_path = work / f"{folder}.rows"
         if folder not in written:
-            if series:
-                loaded = load(data / "datasets" / series)
-                rows.write(rows_path, loaded.raw, loaded.mean, loaded.std)
+            if reference_series:
+                csv_path = data / DATASETS_FOLDER / reference_series
+                try:
+                    write_rows(csv_path, rows_path)
+                except (OSError, ValueError, KeyError) as error:
+                    typer.echo(f"Cannot read {csv_path}: {error}", err=True)
+                    raise typer.Exit(1) from error
             else:
                 window = flat()
                 rows.write(rows_path, window.raw, window.mean, window.std)
@@ -438,8 +466,13 @@ def _check_model(
         for name in result.extra[:5]:
             typer.echo(f"  extra: {name}")
 
-    # Step 3: the verdict
-    if not all(result.ok for result in results):
+    # Step 3: the series, when asked for
+    ok = all(result.ok for result in results)
+    if series is not None and clean is not None and prepared is not None:
+        ok = series_check.stage(prepared, series, work, clean) and ok
+
+    # Step 4: the verdict
+    if not ok:
         raise typer.Exit(1)
 
 

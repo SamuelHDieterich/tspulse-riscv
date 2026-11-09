@@ -91,21 +91,63 @@ Instruction counts are the same on every machine, but Spike's speed is not. `--m
 
 The C code lives in `tspulse/`, one folder per role:
 
-- `kernels/` holds the math the modules share.
-- `modules/` has one function per PyTorch module.
+- `kernels/` holds the math the modules share, one file per kernel: `linear`, `layer_norm`, `gelu`, `softmax`, `revin`, the radix-2 `fft`, the pairwise `sum`, and the small element-wise ones.
+- `modules/` has one function per PyTorch module, grouped by family: `mixer`, `block`, `embedding`, `backbone`, `decoder` and `heads`.
+- `model/` runs the model: `pass` is one forward pass of one channel, `window` runs the 13 passes of every channel and stitches the errors, `history` keeps the last 513 rows, and `config` and `sizes` hold the constants from `config.json` and the model's sizes.
 - `weights/` has the struct that mirrors the PyTorch module tree, and the table of names the checks walk.
-- `io/` has the `.tdump` writer.
+- `io/` has the row file reader and the `.tdump` writer.
 - `checks/` has programs that only verify.
 - `build/` holds objects and executables per target, and the generated weights both targets share.
 
 The weights are compiled in. `export-weights` reads `model.safetensors` and writes the C that fills `struct tspulse_weights`, plus a table for the checks and a `.tdump` of the same values. It leaves out the frequency signature head, which the baseline never runs, so the program carries 226 tensors and 4,045,272 bytes of read-only data.
 
+### The program
+
+`make` builds two binaries from the same sources:
+
+- `tspulse` is the one to measure. It carries no dump code.
+- `tspulse-dump` is built with the macro `TSPULSE_DUMP`, which turns on `--dump-window` and `--dump`: they write every module's output for one window to a `.tdump`. The two write bit-identical errors.
+
+```bash
+tspulse ROWS ERRORS [--windows START:STOP]
+```
+
+`ROWS` is a row file. The program reads it one row at a time, keeps the last 513 rows, and runs every window in the range (window `w` covers rows `w` to `w + 512`; STOP is not run, and the default is every window). It truncates `ERRORS` and writes the header `window,time,fft,forecast` followed by one line per window, with the three errors that feed the scores. Channels run one at a time, so working memory does not grow with the channel count.
+
+The model itself is all float, with no double. Double appears only in standardizing the history, which scikit-learn also does in double, and in building the FFT's twiddle table once at start.
+
+### Row files
+
+Python only turns a CSV into a binary row file, which the C program reads. The format is specified in `scripts/score/src/score/rows.py`: the raw float64 values, row by row, with the average and spread of each channel over the whole file. The program standardizes each window itself.
+
+```bash
+prepare-rows CSV OUT         # CSV is relative to $TSPULSE_DATA/datasets, or absolute
+prepare-rows --flat OUT      # the flat window: 513 zeros, average 0, spread 1
+```
+
+### Checking the C against PyTorch
+
+```bash
+check-model build/host/tspulse-dump
+check-model build/host/tspulse-dump --series <name> --clean build/host/tspulse
+```
+
+The first form runs the dump build on the 7 reference windows and compares every record with the reference under the noise rule of `compare-reference`. It exits 1 on any failing record, any record the reference has and the program lacks without being on the list of what the baseline skips, and any extra record. `--only PREFIX` limits it to records whose names start with it.
+
+The 7 windows are the precise check: every inner step and each window's `error.*` values are held to PyTorch's own float32 noise, which catches a ×1.00001 fault in one layer.
+
+With `--series`, it then checks detection on a whole series. The clean build runs over every window, and its three errors per window go through the anomaly pipeline's own post-processing (`score/rescore.py`) into per-row scores and the ensemble, exactly as the Python baseline's were. Each of the four scores then gets VUS-PR, VUS-ROC and AUC-PR from the same code as the baseline's stored scores in `$TSPULSE_DATA/results/python-baseline/<name>.npz`.
+
+The series passes when every score's VUS-PR is within 1e-3 of the baseline's. The tolerance is a stated choice, below the third decimal VUS-PR results are reported at, not a measured noise bound. It fails on any NaN or Inf error from the C. It prints a table per score with both VUS-PR values, their difference and the verdict, plus the VUS-ROC, AUC-PR and largest per-row score differences for information, and the times of the C run and of the scoring.
+Because it compares detection, it is not expected to catch tiny numeric faults, or a constant scale or offset on one head, which the pipeline's per-head normalization hides. Those are the 7-window stage's job.
+
 From `tspulse/`, inside the dev shell and after `download-weights`:
 
 ```bash
-make                    # builds the weight check for the host
-make check              # runs it and compares its dump with the one `export-weights` wrote from the safetensors file, bit for bit
-make TARGET=rv64 check  # the same under Spike
+make                    # builds check-weights, tspulse and tspulse-dump for the host
+make check              # runs the weight check and compares its dump with the one `export-weights` wrote from the safetensors file, bit for bit
+make TARGET=rv64        # the same programs for RISC-V
+make TARGET=rv64 check  # the weight check under Spike
 make clean
 ```
 

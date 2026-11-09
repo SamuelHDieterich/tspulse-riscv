@@ -15,6 +15,7 @@ import typer
 # Internal
 from score import noise, tdump
 from score.capture import capture, flat, load
+from score.layout import DATASETS_FOLDER, MODEL_FOLDER, REFERENCE_FOLDER
 from score.pipeline import load_model
 
 
@@ -69,11 +70,11 @@ def _capture_reference(
     if data is None:
         typer.echo("No data folder: set $TSPULSE_DATA or pass --data.", err=True)
         raise typer.Exit(1)
-    out = out or data / "reference"
+    out = out or data / REFERENCE_FOLDER
 
-    model_path = data / "models" / "tspulse-r1"
+    model_path = data / MODEL_FOLDER
     for path in {model_path} | {
-        data / "datasets" / series for series, _ in WINDOWS if series
+        data / DATASETS_FOLDER / series for series, _ in WINDOWS if series
     }:
         if not path.exists():
             typer.echo(f"Not found: {path}", err=True)
@@ -94,7 +95,9 @@ def _capture_reference(
             continue
 
         start = time.perf_counter()
-        window = load(data / "datasets" / series).window(index) if series else flat()
+        window = (
+            load(data / DATASETS_FOLDER / series).window(index) if series else flat()
+        )
         channels = window.values.shape[1]
         if channels not in models:
             models[channels] = load_model(model_path, channels)

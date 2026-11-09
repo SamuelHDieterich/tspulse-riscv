@@ -8,7 +8,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, get_args
 
 # External
 import numpy as np
@@ -25,7 +25,9 @@ from tsfm_public.toolkit.time_series_anomaly_detection_pipeline import (
 # ░▀▀▀░▀▀▀░▀░▀░▀▀▀░░▀░░▀░▀░▀░▀░░▀░░▀▀▀
 
 LABEL = "Label"
-HEADS = ("time", "fft", "forecast")
+# The three heads, each giving one error per window. Typed, so a dict keyed by head can say which keys it holds
+Head = Literal["time", "fft", "forecast"]
+HEADS: tuple[Head, ...] = get_args(Head)
 
 # These are the values IBM's TSB-AD benchmark uses with the pipeline.
 # They change how the model is run and how errors become scores, never its weights.
@@ -76,7 +78,7 @@ class Heads:
     ensemble: np.ndarray
 
 
-class _CapturingPipeline(TimeSeriesAnomalyDetectionPipeline):
+class CapturingPipeline(TimeSeriesAnomalyDetectionPipeline):
     """The anomaly pipeline, recording each head's errors and scores before they are merged.
 
     It takes the same arguments as `TimeSeriesAnomalyDetectionPipeline`, and both attributes are filled by the call.
@@ -232,7 +234,41 @@ def score_heads(
     """
 
     channels = series.columns.drop(LABEL).tolist()
-    pipeline = _CapturingPipeline(
+    pipeline = build_pipeline(CapturingPipeline, model, channels, batch_size)
+    ensemble = pipeline(series[channels])["anomaly_score"].to_numpy()
+    return split_heads(pipeline, ensemble)
+
+
+def build_pipeline[P: CapturingPipeline](
+    cls: type[P],
+    model: TSPulseForReconstruction,
+    channels: list[str],
+    batch_size: int,
+    **extra: Any,
+) -> P:
+    """Set up a capturing pipeline with every head and IBM's benchmark values, the one definition the scores are made with.
+
+    Parameters
+    ----------
+    cls : type[P]
+        `CapturingPipeline` or a subclass of it.
+    model : TSPulseForReconstruction
+        The loaded model.
+    channels : list[str]
+        The series' channel columns.
+    batch_size : int
+        How many windows the model handles at once.
+    **extra : Any
+        Arguments only the subclass takes.
+
+    Returns
+    -------
+    P
+        The pipeline, ready to be called on the series' channels.
+    """
+
+    # batch_size only takes effect here. Passed to the pipeline call instead, it is silently dropped.
+    return cls(
         model,
         target_columns=channels,
         prediction_mode=list(HEADS),
@@ -242,8 +278,30 @@ def score_heads(
         least_significant_scale=LEAST_SIGNIFICANT_SCALE,
         least_significant_score=LEAST_SIGNIFICANT_SCORE,
         batch_size=batch_size,
+        **extra,
     )
-    ensemble = pipeline(series[channels])["anomaly_score"].to_numpy()
+
+
+def split_heads(pipeline: CapturingPipeline, ensemble: np.ndarray) -> Heads:
+    """Collect what a called capturing pipeline recorded into each head's errors and scores.
+
+    Parameters
+    ----------
+    pipeline : CapturingPipeline
+        The pipeline, after its call on the series.
+    ensemble : np.ndarray
+        The call's `anomaly_score` column.
+
+    Returns
+    -------
+    Heads
+        The raw errors and the scores of `time`, `fft` and `forecast`, and their ensemble.
+
+    Raises
+    ------
+    RuntimeError
+        If the pipeline did not merge exactly the three heads.
+    """
 
     keys = list(pipeline.errors)
     if pipeline.stacked is None or sorted(keys) != sorted(HEADS):
