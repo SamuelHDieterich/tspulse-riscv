@@ -42,8 +42,8 @@ OBJECTS := $(SOURCES:%.c=$(BUILD)/%.o)
 
 # The program is built twice: the dump build defines TSPULSE_DUMP and keeps its objects apart, so it never mixes with the clean one
 KERNEL_SOURCES := kernels/add.c kernels/fft.c kernels/gelu.c kernels/layer_norm.c kernels/linear.c kernels/multiply.c kernels/revin.c kernels/softmax.c kernels/sum.c kernels/transpose.c
-MODULE_SOURCES := modules/backbone.c modules/embedding.c modules/mixer.c
-PROGRAM_SOURCES := tspulse.c io/rows.c model/history.c model/window.c $(KERNEL_SOURCES) $(MODULE_SOURCES)
+MODULE_SOURCES := modules/backbone.c modules/block.c modules/decoder.c modules/embedding.c modules/heads.c modules/mixer.c
+PROGRAM_SOURCES := tspulse.c io/rows.c model/history.c model/pass.c model/window.c $(KERNEL_SOURCES) $(MODULE_SOURCES)
 PROGRAM_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/%.o)
 DUMP_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/dump/%.o) $(BUILD)/dump/io/tdump.o $(BUILD)/dump/io/dump.o
 

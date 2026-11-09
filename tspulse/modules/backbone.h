@@ -64,17 +64,6 @@ void time_masker(
 );
 
 /**
- * `TSPulseBlock` as the encoder: the 8 mixer layers over 138 patches, one after another.
- *
- * @param layers The layers' weights.
- * @param hidden The hidden state, 138 rows of 24 values, updated in place.
- */
-void encoder_block(
-    const struct mixer_layer_138 layers[ENCODER_LAYERS],
-    float hidden[FLAT_LENGTH]
-);
-
-/**
  * `TSPulseModel`: runs one pass of one channel through the backbone.
  *
  * @param weights The model's weights, of which the backbone's are used.

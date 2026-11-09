@@ -17,8 +17,8 @@
 #include "model/config.h"
 #include "model/sizes.h"
 #include "modules/backbone.h"
+#include "modules/block.h"
 #include "modules/embedding.h"
-#include "modules/mixer.h"
 #include "weights/types.h"
 #include "weights/weights.h"
 
@@ -106,23 +106,6 @@ void time_masker(
     );
 }
 
-void encoder_block(
-    const struct mixer_layer_138 layers[ENCODER_LAYERS],
-    float hidden[FLAT_LENGTH]
-) {
-    for (int i = 0; i < ENCODER_LAYERS; i++) {
-        DUMP_PUSH("mixers.%d", i);
-        mixer_layer_138(&layers[i], hidden);
-        DUMP_POP();
-    }
-
-    // The block returns a tuple of the output and the hidden states it was not asked to keep, so only part 0 exists
-    DUMP(
-        "0", hidden, NETWORK_NDIM, DIMS(DUMP_CHANNELS, TOTAL_PATCHES, D_MODEL),
-        CHANNEL_FIRST
-    );
-}
-
 void backbone(
     const struct tspulse_weights *weights,
     const float past[CONTEXT_LENGTH],
@@ -201,7 +184,9 @@ void backbone(
 
     // Step 6: the encoder
     DUMP_PUSH("encoder_block");
-    encoder_block(weights->backbone.encoder_block.mixers, hidden);
+    tspulse_block(
+        weights->backbone.encoder_block.mixers, ENCODER_LAYERS, hidden
+    );
     DUMP_POP();
 
     // Step 7: the backbone's output fields. The flattened state holds the same values as the hidden state

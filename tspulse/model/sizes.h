@@ -52,6 +52,18 @@
 /// Mixer layers in the encoder.
 #define ENCODER_LAYERS 8
 
+/// Mixer layers in the decoder.
+#define DECODER_LAYERS 2
+
+/// Mixer layers over the register tokens at the start of the forecast head.
+#define REGISTER_MIXER_LAYERS 3
+
+/// The register tokens flattened to one row, which the forecast head normalizes.
+#define REGISTER_FLAT_LENGTH (REGISTER_TOKENS * D_MODEL)
+
+/// Rows the forecast head predicts after the past.
+#define PREDICTION_LENGTH 16
+
 /// Bins of a real DFT over 512 values, from 0 to 256.
 #define FFT_BINS (CONTEXT_LENGTH / 2 + 1)
 
@@ -67,7 +79,10 @@
 /// Passes per window: the plain one, then the hidden ones.
 #define COPIES (1 + HIDDEN_COPIES)
 
+/// Rows the hidden passes hide between them, the last 96 of the past, over which the time and FFT errors are averaged.
+#define HIDDEN_ROWS (HIDDEN_COPIES * PATCH_LENGTH)
+
 /// The first row the first hidden pass hides. Pass `i` hides rows `416 + 8i` to `423 + 8i`.
-#define FIRST_HIDDEN_ROW (CONTEXT_LENGTH - HIDDEN_COPIES * PATCH_LENGTH)
+#define FIRST_HIDDEN_ROW (CONTEXT_LENGTH - HIDDEN_ROWS)
 
 #endif
