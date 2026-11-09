@@ -11,17 +11,23 @@
 #include <stdint.h>
 
 // Internal
+#include "io/dump.h"
 #include "io/tdump.h"
 #include "model/history.h"
 #include "model/sizes.h"
 #include "model/window.h"
+#include "modules/backbone.h"
+#include "weights/weights.h"
 
 // ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀█░█▀█░▀█▀░█▀▀
 // ░█░░░█░█░█░█░▀▀█░░█░░█▀█░█░█░░█░░▀▀█
 // ░▀▀▀░▀▀▀░▀░▀░▀▀▀░░▀░░▀░▀░▀░▀░░▀░░▀▀▀
 
-#define WINDOW_NDIM 2
-#define CHANNEL_AXIS (WINDOW_NDIM - 1)
+/// The record path of the pass that hides nothing.
+#define PLAIN_COPY "plain/"
+
+/// The record path of the pass that hides patch `i`, from 00 to 11.
+#define HIDDEN_COPY "hidden%02d/"
 
 // ░█▀▀░█░█░█▀█░█▀▀░▀█▀░▀█▀░█▀█░█▀█░█▀▀
 // ░█▀▀░█░█░█░█░█░░░░█░░░█░░█░█░█░█░▀▀█
@@ -34,6 +40,7 @@ int window_run(
 ) {
     // Working memory is sized for one channel, so it doesn't grow with the channel count
     static float input[WINDOW_LENGTH];
+    static struct backbone_output output;
 
     errors->time = 0.0f;
     errors->fft = 0.0f;
@@ -48,20 +55,31 @@ int window_run(
         // Step 1: the channel's standardized window
         history_window(history, channel, input);
 
-#ifdef TSPULSE_DUMP
-        // Step 2: the dump, which takes the channels one at a time and puts them last, as the reference's (513, C) record does
-        if (dump != NULL) {
-            const uint32_t dims[WINDOW_NDIM] = {
-                WINDOW_LENGTH, history->channels
-            };
-            tdump_begin_channel(dump, channel, history->channels);
-            if (tdump_write_channel(
-                    dump, "input.window", input, WINDOW_NDIM, dims, CHANNEL_AXIS
-                )) {
-                return 1;
+        // Step 2: the dump takes the channels one at a time, and every channel writes the same records in the same order
+        DUMP_BEGIN_CHANNEL(dump, channel, history->channels);
+        DUMP(
+            "input.window", input, SERIES_NDIM,
+            DIMS(WINDOW_LENGTH, DUMP_CHANNELS), CHANNEL_LAST
+        );
+
+        // Step 3: the plain pass, then one pass per hidden patch
+        for (int copy = 0; copy < COPIES; copy++) {
+            int hidden_patch = copy == 0 ? NO_HIDDEN_PATCH : copy - 1;
+            if (hidden_patch == NO_HIDDEN_PATCH) {
+                DUMP_PUSH(PLAIN_COPY);
+            } else {
+                DUMP_PUSH(HIDDEN_COPY, hidden_patch);
             }
+            DUMP_PUSH("backbone");
+            backbone(&TSPULSE_WEIGHTS, input, hidden_patch, &output);
+            DUMP_POP();
+            DUMP_POP();
         }
-#endif
     }
+
+#ifdef TSPULSE_DUMP
+    return dump_failed();
+#else
     return 0;
+#endif
 }

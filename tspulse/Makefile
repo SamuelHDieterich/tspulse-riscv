@@ -41,15 +41,20 @@ SOURCES := io/tdump.c checks/weights.c
 OBJECTS := $(SOURCES:%.c=$(BUILD)/%.o)
 
 # The program is built twice: the dump build defines TSPULSE_DUMP and keeps its objects apart, so it never mixes with the clean one
-PROGRAM_SOURCES := tspulse.c io/rows.c model/history.c model/window.c
+KERNEL_SOURCES := kernels/add.c kernels/fft.c kernels/gelu.c kernels/layer_norm.c kernels/linear.c kernels/multiply.c kernels/revin.c kernels/softmax.c kernels/sum.c kernels/transpose.c
+MODULE_SOURCES := modules/backbone.c modules/embedding.c modules/mixer.c
+PROGRAM_SOURCES := tspulse.c io/rows.c model/history.c model/window.c $(KERNEL_SOURCES) $(MODULE_SOURCES)
 PROGRAM_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/%.o)
-DUMP_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/dump/%.o) $(BUILD)/dump/io/tdump.o
+DUMP_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/dump/%.o) $(BUILD)/dump/io/tdump.o $(BUILD)/dump/io/dump.o
 
 ifeq ($(TARGET),host)
 NEWLIB_OBJECTS := $(NEWLIB_FILES:%.c=$(BUILD)/newlib/%.o)
 endif
 GENERATED_SOURCES := $(GENERATED)/weights.c $(GENERATED)/weights_table.c
 GENERATED_OBJECTS := $(GENERATED_SOURCES:$(GENERATED)/%.c=$(BUILD)/generated/%.o)
+
+# The program needs only the weights, while the weight check also needs their table of names
+WEIGHTS_OBJECT := $(BUILD)/generated/weights.o
 
 # ░█▀▀░█▀▀░█▀█░█▀▀░█▀▄░█▀█░▀█▀░█▀█░█▀▄
 # ░█░█░█▀▀░█░█░█▀▀░█▀▄░█▀█░░█░░█░█░█▀▄
@@ -106,10 +111,10 @@ $(BUILD)/check-weights: $(OBJECTS) $(GENERATED_OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
 # The newlib objects come before -lm, so the linker finds erff and expf in them first
-$(BUILD)/tspulse: $(PROGRAM_OBJECTS) $(NEWLIB_OBJECTS)
+$(BUILD)/tspulse: $(PROGRAM_OBJECTS) $(WEIGHTS_OBJECT) $(NEWLIB_OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(BUILD)/tspulse-dump: $(DUMP_OBJECTS) $(NEWLIB_OBJECTS)
+$(BUILD)/tspulse-dump: $(DUMP_OBJECTS) $(WEIGHTS_OBJECT) $(NEWLIB_OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 # A member with transposed dimensions has the right size but only draws an excess-elements warning, so generated objects build with -Werror
@@ -120,6 +125,10 @@ $(GENERATED_OBJECTS): $(BUILD)/generated/%.o: $(GENERATED)/%.c
 $(OBJECTS) $(PROGRAM_OBJECTS): $(BUILD)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+# PyTorch's RevIN does each step as its own tensor operation, in both directions, rounding after each, so the whole file is built without fused multiply-add
+# Fused, more scaled values land one ulp away from PyTorch's, and the alternating sum behind the FFT's base component (bin 256) magnifies those differences past its allowance on YAHOO w908
+$(BUILD)/kernels/revin.o $(BUILD)/dump/kernels/revin.o: CFLAGS += -ffp-contract=off
 
 $(DUMP_OBJECTS): $(BUILD)/dump/%.o: %.c
 	@mkdir -p $(dir $@)

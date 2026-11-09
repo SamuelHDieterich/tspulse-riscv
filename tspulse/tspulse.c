@@ -25,6 +25,7 @@
 // Internal
 #include "io/rows.h"
 #include "io/tdump.h"
+#include "kernels/fft.h"
 #include "model/history.h"
 #include "model/sizes.h"
 #include "model/window.h"
@@ -317,7 +318,8 @@ int main(int argc, char **argv) {
     }
 #endif
 
-    // Step 4: the series
+    // Step 4: the series. Every window reads the FFT's cosine table, so it is filled first
+    fft_setup();
     int dumped = 0;
     int failed = run_series(&options, &reader, errors, dump_target, &dumped);
 
