@@ -24,6 +24,8 @@ score-series = "score.cli:main"
 score-baseline = "score.baseline:main"
 capture-reference = "score.reference:main"
 compare-reference = "score.compare:main"
+prepare-rows = "score.prepare:main"
+check-model = "score.check:main"
 
 # Dependencies for working on the code, which `uv sync` installs and the package never ships (PEP 735)
 [dependency-groups]

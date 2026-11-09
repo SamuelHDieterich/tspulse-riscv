@@ -48,6 +48,28 @@
           exec uv run --locked --project "$(git rev-parse --show-toplevel)/scripts/score" compare-reference "$@"
         '';
       };
+
+      prepare-rows = pkgs.writeShellApplication {
+        name = "prepare-rows";
+        runtimeInputs = with pkgs; [
+          git # finds the worktree root
+          uv # runs the command from its venv
+        ];
+        text = /* bash */ ''
+          exec uv run --locked --project "$(git rev-parse --show-toplevel)/scripts/score" prepare-rows "$@"
+        '';
+      };
+
+      check-model = pkgs.writeShellApplication {
+        name = "check-model";
+        runtimeInputs = with pkgs; [
+          git # finds the worktree root
+          uv # runs the command from its venv
+        ];
+        text = /* bash */ ''
+          exec uv run --locked --project "$(git rev-parse --show-toplevel)/scripts/score" check-model "$@"
+        '';
+      };
     in
     {
       devShells.python = pkgs.mkShell {
@@ -58,6 +80,8 @@
           score-baseline # scores many series with IBM's metric, for the accuracy baseline
           capture-reference # saves every inner output on fixed windows, to check the C port against
           compare-reference # shows where a dump first differs from the reference
+          prepare-rows # turns a series into the row file the C program reads
+          check-model # runs the C program's dump build on the reference windows and compares it
         ];
 
         # inputsFrom forwards shellHook but not env, so these are exported here.

@@ -1,5 +1,6 @@
-# Builds the weight check for the host (`make`) or for rv64gc, scalar (`make TARGET=rv64`)
-# `make check` also runs it and compares the dump with the one export-weights wrote from the safetensors file
+# Builds the program and the weight check for the host (`make`) or for rv64gc, scalar (`make TARGET=rv64`)
+# `tspulse-dump` is the program with the code that writes inner outputs, which `check-model` runs, and `tspulse` carries none of it
+# `make check` runs the weight check and compares its dump with the one export-weights wrote from the safetensors file
 # Run inside the dev shell, after `download-weights`
 
 # ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀▀
@@ -24,6 +25,13 @@ endif
 
 CPPFLAGS += -I. -MMD -MP
 CFLAGS += $(ARCH_FLAGS) -Wall -Wextra
+LDLIBS := -lm
+
+# The host build compiles newlib's erff and expf, because glibc's round differently and the host must match rv64 bit for bit
+# Without __OBSOLETE_MATH=0, x86 takes newlib's old code path: sf_exp.c compiles to nothing and sf_erf.o needs __ieee754_expf
+# Only the machine/ folder is added to the include path, since newlib's whole libc/include would replace glibc's math.h
+NEWLIB_FILES := libm/math/sf_erf.c libm/common/sf_exp.c libm/common/sf_exp2_data.c libm/common/math_errf.c libm/common/math_err.c
+NEWLIB_FLAGS = -D__OBSOLETE_MATH=0 -I$(NEWLIB_HOST_INCLUDE) -I$(NEWLIB_SRC)/newlib/libm/common
 
 # ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
 # ░▀▀█░█░█░█░█░█▀▄░█░░░█▀▀░▀▀█
@@ -31,6 +39,15 @@ CFLAGS += $(ARCH_FLAGS) -Wall -Wextra
 
 SOURCES := io/tdump.c checks/weights.c
 OBJECTS := $(SOURCES:%.c=$(BUILD)/%.o)
+
+# The program is built twice: the dump build defines TSPULSE_DUMP and keeps its objects apart, so it never mixes with the clean one
+PROGRAM_SOURCES := tspulse.c io/rows.c model/history.c model/window.c
+PROGRAM_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/%.o)
+DUMP_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/dump/%.o) $(BUILD)/dump/io/tdump.o
+
+ifeq ($(TARGET),host)
+NEWLIB_OBJECTS := $(NEWLIB_FILES:%.c=$(BUILD)/newlib/%.o)
+endif
 GENERATED_SOURCES := $(GENERATED)/weights.c $(GENERATED)/weights_table.c
 GENERATED_OBJECTS := $(GENERATED_SOURCES:$(GENERATED)/%.c=$(BUILD)/generated/%.o)
 
@@ -50,6 +67,11 @@ SAFETENSORS_PREREQ := $(subst $(space),\ ,$(SAFETENSORS))
 GENERATOR := $(shell command -v export-weights)
 $(if $(GENERATOR),,$(error export-weights not found; run make inside nix develop))
 
+ifeq ($(TARGET),host)
+$(if $(NEWLIB_SRC),,$(error NEWLIB_SRC is not set; run make inside nix develop))
+$(if $(NEWLIB_HOST_INCLUDE),,$(error NEWLIB_HOST_INCLUDE is not set; run make inside nix develop))
+endif
+
 endif
 
 # ░▀█▀░█▀█░█▀▄░█▀▀░█▀▀░▀█▀░█▀▀
@@ -58,7 +80,7 @@ endif
 
 .PHONY: all check clean FORCE
 
-all: $(BUILD)/check-weights
+all: $(BUILD)/tspulse $(BUILD)/tspulse-dump $(BUILD)/check-weights
 
 # Run the check program: on the host directly, on rv64 under Spike
 check: $(BUILD)/check-weights $(GENERATED)/weights.tdump
@@ -83,14 +105,29 @@ clean:
 $(BUILD)/check-weights: $(OBJECTS) $(GENERATED_OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
+# The newlib objects come before -lm, so the linker finds erff and expf in them first
+$(BUILD)/tspulse: $(PROGRAM_OBJECTS) $(NEWLIB_OBJECTS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(BUILD)/tspulse-dump: $(DUMP_OBJECTS) $(NEWLIB_OBJECTS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
 # A member with transposed dimensions has the right size but only draws an excess-elements warning, so generated objects build with -Werror
 $(GENERATED_OBJECTS): $(BUILD)/generated/%.o: $(GENERATED)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Werror -c $< -o $@
 
-$(OBJECTS): $(BUILD)/%.o: %.c
+$(OBJECTS) $(PROGRAM_OBJECTS): $(BUILD)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+$(DUMP_OBJECTS): $(BUILD)/dump/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DTSPULSE_DUMP -c $< -o $@
+
+$(NEWLIB_OBJECTS): $(BUILD)/newlib/%.o: $(NEWLIB_SRC)/newlib/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(NEWLIB_FLAGS) -c $< -o $@
 
 # ░█▀▀░█▀▀░█▀█░█▀▀░█▀▄░█▀█░▀█▀░█▀▀░█▀▄
 # ░█░█░█▀▀░█░█░█▀▀░█▀▄░█▀█░░█░░█▀▀░█░█
@@ -111,4 +148,4 @@ $(GENERATED)/stamp: $(SAFETENSORS_PREREQ) $(GENERATED)/generator
 
 $(GENERATED)/weights.c $(GENERATED)/weights_table.c $(GENERATED)/weights.tdump: $(GENERATED)/stamp ;
 
--include $(OBJECTS:.o=.d) $(GENERATED_OBJECTS:.o=.d)
+-include $(OBJECTS:.o=.d) $(PROGRAM_OBJECTS:.o=.d) $(DUMP_OBJECTS:.o=.d) $(NEWLIB_OBJECTS:.o=.d) $(GENERATED_OBJECTS:.o=.d)
