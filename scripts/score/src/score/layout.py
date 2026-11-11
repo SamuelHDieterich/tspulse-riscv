@@ -20,3 +20,6 @@ MODEL_FOLDER = Path("models") / "tspulse-r1"
 
 # The captured reference windows and the pooled noise ratios
 REFERENCE_FOLDER = Path("reference")
+
+# The host-against-Spike check, one folder per machine and one per unit inside it
+SPIKE_CHECK_FOLDER = Path("results") / "spike-check"
