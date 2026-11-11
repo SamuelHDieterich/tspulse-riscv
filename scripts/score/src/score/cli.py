@@ -14,6 +14,7 @@ import numpy as np
 import typer
 
 # Internal
+from score.layout import DATASETS_FOLDER, MODEL_FOLDER
 from score.pipeline import HEADS, LABEL, load_model, load_series, score
 
 
@@ -49,8 +50,8 @@ def _score_series(
         raise typer.Exit(1)
 
     # An absolute series replaces the prefix, so any CSV works
-    series_path = data / "datasets" / series
-    model_path = data / "models" / "tspulse-r1"
+    series_path = data / DATASETS_FOLDER / series
+    model_path = data / MODEL_FOLDER
     for path in (series_path, model_path):
         if not path.exists():
             typer.echo(f"Not found: {path}", err=True)

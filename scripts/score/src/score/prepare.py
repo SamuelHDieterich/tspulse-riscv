@@ -14,14 +14,8 @@ import typer
 # Internal
 from score import rows
 from score.capture import flat, load
+from score.layout import DATASETS_FOLDER
 
-
-# ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀█░█▀█░▀█▀░█▀▀
-# ░█░░░█░█░█░█░▀▀█░░█░░█▀█░█░█░░█░░▀▀█
-# ░▀▀▀░▀▀▀░▀░▀░▀▀▀░░▀░░▀░▀░▀░▀░░▀░░▀▀▀
-
-# The datasets' folder under the data folder
-DATASETS_FOLDER = "datasets"
 
 # ░█▄█░█▀▀░▀█▀░█░█░█▀█░█▀▄░█▀▀
 # ░█░█░█▀▀░░█░░█▀█░█░█░█░█░▀▀█

@@ -19,6 +19,7 @@ import torch
 
 # Internal
 from score.kind import Kind
+from score.layout import DATASETS_FOLDER, MODEL_FOLDER
 from score.metrics import score_series
 from score.pipeline import HEADS, LABEL, load_model, load_series, score_heads
 
@@ -165,11 +166,11 @@ def run_unit(unit: Unit, settings: Settings) -> Finished:
     torch.set_num_threads(settings.threads)
 
     frame = load_series(
-        settings.data / "datasets" / f"TSB-AD-{unit.kind}" / unit.file_name
+        settings.data / DATASETS_FOLDER / f"TSB-AD-{unit.kind}" / unit.file_name
     )
     labels = frame[LABEL].astype(int).to_numpy()
     values = frame.drop(columns=LABEL).values.astype(float)
-    model = load_model(settings.data / "models" / "tspulse-r1", values.shape[1])
+    model = load_model(settings.data / MODEL_FOLDER, values.shape[1])
 
     model_start = time.perf_counter()
     heads = score_heads(model, frame, settings.batch_size)
