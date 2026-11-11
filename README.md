@@ -8,7 +8,7 @@ Final project for the Embedded Systems class (MIC08, UFRGS).
 
 1. **Edge sensor**: streams a time series.
 2. **TSPulse**: a model of about 1M parameters that works on both time and frequency.
-3. **C port**: static memory, no libraries.
+3. **C port**: only the C standard library, newlib on RISC-V, and no other libraries.
 4. **RISC-V**: simulated with Spike.
 5. **Trade-offs**: accuracy against speed, across quantization, numerical approximations and compiler optimizations.
 
@@ -114,6 +114,8 @@ tspulse ROWS ERRORS [--windows START:STOP]
 
 `ROWS` is a row file. The program reads it one row at a time, keeps the last 513 rows, and runs every window in the range (window `w` covers rows `w` to `w + 512`; STOP is not run, and the default is every window). It truncates `ERRORS` and writes the header `window,time,fft,forecast` followed by one line per window, with the three errors that feed the scores. Channels run one at a time, so working memory does not grow with the channel count.
 
+The clean build's buffers are static, except three allocated once at start: the 513-row history, one row, and each channel's average and spread. The dump build's writer also allocates.
+
 The model itself is all float, with no double. Double appears only in standardizing the history, which scikit-learn also does in double, and in building the FFT's twiddle table once at start.
 
 ### Row files
@@ -152,3 +154,40 @@ make clean
 ```
 
 The generated files are rebuilt only when the safetensors file or `export-weights` changes (after re-entering the dev shell). If you delete one by hand, run `make clean`.
+
+### Running under Spike
+
+After `make TARGET=rv64`, the plain command runs a window range on the RISC-V build, from `tspulse/` inside the dev shell:
+
+```bash
+spike --isa=rv64gc_zicntr "$RISCV_PK" build/rv64/tspulse ROWS ERRORS --windows START:STOP
+```
+
+`$RISCV_PK` is the proxy kernel (pk) the dev shell provides, since Spike does not search `PATH` for it.
+The rv64 build carries its own `_open`, because pk reads the open flags as Linux numbers and newlib's differ.
+
+Spike is slow: with `-g`, a window takes roughly a minute per channel, so a 55-channel window takes close to an hour.
+The instruction count does not depend on the computer, and is the number to compare.
+One window costs about 2.7 billion program instructions per channel with the dump build (`tspulse-dump`) and about 2.4 billion with the clean build (`tspulse`), whatever the series.
+
+`check-spike` checks that the RISC-V build computes what the host build does, byte for byte:
+
+```bash
+check-spike build/host build/rv64
+check-spike build/host build/rv64 --stage reference --jobs 1
+```
+
+A unit is one window, run on the host and then under Spike.
+The reference stage runs the dump build on each of the 7 reference windows and compares every inner output. The series stage runs the clean build on the middle window of each working series and compares its three errors.
+`--stage reference|series|all` picks the stages (default `all`).
+`--reference LABEL` (such as `flat/w0`) and `--series NAME` (a CSV name without `.csv`) can be repeated, and each keeps only the named units of its own stage. The other stage still runs in full unless `--stage` leaves it out: `--stage reference --reference flat/w0` runs just that one unit.
+`--jobs N` runs that many units at once, one Spike each, which is limited by the cores and the memory of the computer. It defaults to 1.
+`--work DIR` moves the row files and the scratch errors and dumps, which default to `tspulse/build/check-spike` in the worktree.
+
+Each unit writes its result under `$TSPULSE_DATA/results/spike-check/<machine>/<unit>/`, and the command rewrites a tidy `results.csv` with one row per unit in `<machine>/` as units complete.
+`--machine NAME` labels the computer, so several can share the data folder. It defaults to the hostname.
+
+A rerun resumes: a unit already run with the same four binaries is printed and skipped, and one run with different binaries reruns.
+`--redo` forces every selected unit to rerun.
+Interrupting with Ctrl-C or SIGTERM stops every Spike started, and running the same command again picks up the rest.
+It exits 1 when something needed is missing, any program fails, or any unit the call selected differs, including a skipped one whose stored result differs. It exits 0 otherwise.
