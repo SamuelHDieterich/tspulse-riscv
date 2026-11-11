@@ -49,6 +49,9 @@ DUMP_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/dump/%.o) $(BUILD)/dump/io/tdump.
 
 ifeq ($(TARGET),host)
 NEWLIB_OBJECTS := $(NEWLIB_FILES:%.c=$(BUILD)/newlib/%.o)
+else
+# Under pk the program carries its own _open, because pk reads open flags as Linux numbers
+PLATFORM_OBJECTS := $(BUILD)/io/pk_open.o
 endif
 GENERATED_SOURCES := $(GENERATED)/weights.c $(GENERATED)/weights_table.c
 GENERATED_OBJECTS := $(GENERATED_SOURCES:$(GENERATED)/%.c=$(BUILD)/generated/%.o)
@@ -92,7 +95,6 @@ check: $(BUILD)/check-weights $(GENERATED)/weights.tdump
 ifeq ($(TARGET),host)
 	$(BUILD)/check-weights $(BUILD)/weights.tdump
 else
-	: > $(BUILD)/weights.tdump
 	spike --isa=rv64gc_zicntr "$$RISCV_PK" $(BUILD)/check-weights $(BUILD)/weights.tdump
 endif
 # Pass only on 0 fail, 0 missing and 0 extra, because compare-reference exits 0 on missing records
@@ -107,14 +109,14 @@ clean:
 # ░█▀▄░█░█░░█░░█░░░█░█░▀▀█
 # ░▀▀░░▀▀▀░▀▀▀░▀▀▀░▀▀░░▀▀▀
 
-$(BUILD)/check-weights: $(OBJECTS) $(GENERATED_OBJECTS)
+$(BUILD)/check-weights: $(OBJECTS) $(GENERATED_OBJECTS) $(PLATFORM_OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
 # The newlib objects come before -lm, so the linker finds erff and expf in them first
-$(BUILD)/tspulse: $(PROGRAM_OBJECTS) $(WEIGHTS_OBJECT) $(NEWLIB_OBJECTS)
+$(BUILD)/tspulse: $(PROGRAM_OBJECTS) $(WEIGHTS_OBJECT) $(NEWLIB_OBJECTS) $(PLATFORM_OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(BUILD)/tspulse-dump: $(DUMP_OBJECTS) $(WEIGHTS_OBJECT) $(NEWLIB_OBJECTS)
+$(BUILD)/tspulse-dump: $(DUMP_OBJECTS) $(WEIGHTS_OBJECT) $(NEWLIB_OBJECTS) $(PLATFORM_OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 # A member with transposed dimensions has the right size but only draws an excess-elements warning, so generated objects build with -Werror
@@ -122,7 +124,7 @@ $(GENERATED_OBJECTS): $(BUILD)/generated/%.o: $(GENERATED)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Werror -c $< -o $@
 
-$(OBJECTS) $(PROGRAM_OBJECTS): $(BUILD)/%.o: %.c
+$(OBJECTS) $(PROGRAM_OBJECTS) $(PLATFORM_OBJECTS): $(BUILD)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
@@ -157,4 +159,4 @@ $(GENERATED)/stamp: $(SAFETENSORS_PREREQ) $(GENERATED)/generator
 
 $(GENERATED)/weights.c $(GENERATED)/weights_table.c $(GENERATED)/weights.tdump: $(GENERATED)/stamp ;
 
--include $(OBJECTS:.o=.d) $(PROGRAM_OBJECTS:.o=.d) $(DUMP_OBJECTS:.o=.d) $(NEWLIB_OBJECTS:.o=.d) $(GENERATED_OBJECTS:.o=.d)
+-include $(OBJECTS:.o=.d) $(PROGRAM_OBJECTS:.o=.d) $(DUMP_OBJECTS:.o=.d) $(NEWLIB_OBJECTS:.o=.d) $(PLATFORM_OBJECTS:.o=.d) $(GENERATED_OBJECTS:.o=.d)

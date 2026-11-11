@@ -235,11 +235,8 @@ def _run_clean(
         When the program cannot run, fails, or writes a CSV that does not hold every window in order.
     """
 
-    # Step 1: an empty output file first, because the same command must work under Spike, whose proxy kernel can't create files
+    # Step 1: the program on every window, its default
     errors_path = work / f"{rows_path.stem}.errors.csv"
-    errors_path.touch()
-
-    # Step 2: the program on every window, its default
     try:
         run = subprocess.run(
             [str(binary), str(rows_path), str(errors_path)],
@@ -251,7 +248,7 @@ def _run_clean(
     if run.returncode:
         raise RuntimeError(f"exit {run.returncode}: {run.stderr.strip()}")
 
-    # Step 3: its CSV, which must line up window by window with the baseline
+    # Step 2: its CSV, which must line up window by window with the baseline
     try:
         with errors_path.open() as handle:
             header = handle.readline().strip()

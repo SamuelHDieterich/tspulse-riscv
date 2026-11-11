@@ -290,11 +290,7 @@ def _check_window(
     errors_path = work / f"{stem}.errors.csv"
     dump_path = work / f"{stem}.tdump"
 
-    # Step 1: empty output files first, because the same command must work under Spike, whose proxy kernel can't create files
-    errors_path.touch()
-    dump_path.touch()
-
-    # Step 2: the program on just this window, dumping it
+    # Step 1: the program on just this window, dumping it
     command = [
         str(binary),
         str(rows_path),
@@ -315,7 +311,7 @@ def _check_window(
         result.error = f"exit {run.returncode}: {run.stderr.strip()}"
         return result
 
-    # Step 3: read both dumps and compare
+    # Step 2: read both dumps and compare
     try:
         _compare(
             result, tdump.read(reference_path), tdump.read(dump_path), ratios, only
