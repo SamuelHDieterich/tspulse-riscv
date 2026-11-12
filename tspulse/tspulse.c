@@ -8,6 +8,8 @@
  * Window `w` covers rows `w` to `w + 512`, and the series has `rows - 512` windows.
  * START and STOP count windows, and STOP is not run. Windows before START are read but not run.
  *
+ * The RISC-V build adds `--counts PATH`, which receives a CSV with the instructions each window's model run took.
+ *
  * The dump build adds `--dump-window W --dump PATH`, which writes window W's inner outputs to a `.tdump` file.
  */
 
@@ -17,12 +19,14 @@
 
 // Built-in
 #include <errno.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 // Internal
+#include "io/instret.h"
 #include "io/rows.h"
 #include "io/tdump.h"
 #include "kernels/fft.h"
@@ -39,6 +43,9 @@ struct options {
     // clang-format off: one comment column for the whole struct, which clang-format splits at each line without a trailing comment
     const char *rows_path;   ///< The `.rows` file to read.
     const char *errors_path; ///< The CSV to write.
+#ifdef __riscv
+    const char *counts_path; ///< The CSV of instruction counts to write, NULL when not asked for.
+#endif
     uint32_t start;          ///< The first window to run.
     uint32_t stop;           ///< One past the last window to run.
     int has_stop;            ///< Whether `--windows` gave a stop, else all windows run.
@@ -60,6 +67,14 @@ struct options {
 #define OPTION_DUMP_WINDOW "--dump-window"
 /// The option that names the `.tdump` file.
 #define OPTION_DUMP "--dump"
+#ifdef __riscv
+/// The option that names the instruction counts CSV.
+#define OPTION_COUNTS "--counts"
+/// The first line of the counts CSV.
+#define COUNTS_HEADER "window,instructions\n"
+/// One line of the counts CSV.
+#define COUNTS_LINE "%u,%" PRIu64 "\n"
+#endif
 /// The base the window numbers are parsed in.
 #define DECIMAL_BASE 10
 /// The first line of the errors CSV.
@@ -68,13 +83,19 @@ struct options {
 // Nine significant digits are enough to read any float32 back exactly
 #define ERRORS_LINE "%u,%.9g,%.9g,%.9g\n"
 
-#ifdef TSPULSE_DUMP
-#define USAGE                                                                  \
-    "usage: %s ROWS ERRORS [--windows START:STOP] [--dump-window W --dump "    \
-    "PATH]\n"
+// The usage line lists only the options this build has
+#ifdef __riscv
+#define USAGE_COUNTS " [--counts PATH]"
 #else
-#define USAGE "usage: %s ROWS ERRORS [--windows START:STOP]\n"
+#define USAGE_COUNTS ""
 #endif
+#ifdef TSPULSE_DUMP
+#define USAGE_DUMP " [--dump-window W --dump PATH]"
+#else
+#define USAGE_DUMP ""
+#endif
+#define USAGE                                                                  \
+    "usage: %s ROWS ERRORS [--windows START:STOP]" USAGE_COUNTS USAGE_DUMP "\n"
 
 // ░█▀▀░█░█░█▀█░█▀▀░▀█▀░▀█▀░█▀█░█▀█░█▀▀
 // ░█▀▀░█░█░█░█░█░░░░█░░░█░░█░█░█░█░▀▀█
@@ -148,6 +169,10 @@ static int parse_args(int argc, char **argv, struct options *options) {
             if (parse_range(value, options)) {
                 return 1;
             }
+#ifdef __riscv
+        } else if (strcmp(argv[i], OPTION_COUNTS) == 0) {
+            options->counts_path = value;
+#endif
 #ifdef TSPULSE_DUMP
         } else if (strcmp(argv[i], OPTION_DUMP_WINDOW) == 0) {
             const char *next;
@@ -177,6 +202,7 @@ static int parse_args(int argc, char **argv, struct options *options) {
  * @param options What the command line asked for.
  * @param reader An open `.rows` file.
  * @param errors The CSV, with its header already written.
+ * @param counts The instruction counts CSV with its header already written, NULL when none was asked for. The host build passes NULL.
  * @param dump The dump to write into, NULL when none was asked for. The clean build passes NULL.
  * @param dumped Receives whether the dump window was run.
  * @return 0 on success, nonzero on a read or write failure.
@@ -185,6 +211,7 @@ static int run_series(
     const struct options *options,
     struct rows_reader *reader,
     FILE *errors,
+    FILE *counts,
     struct tdump *dump,
     int *dumped
 ) {
@@ -230,14 +257,32 @@ static int run_series(
             *dumped = 1;
         }
 #endif
+        // Only the model work is measured: reading rows and writing results is file I/O through the proxy kernel
+#ifdef __riscv
+        uint64_t before = instret_read();
+#endif
         struct window_errors result;
-        if (window_run(&history, window_dump, &result)) {
+        int run_failed = window_run(&history, window_dump, &result);
+#ifdef __riscv
+        uint64_t after = instret_read();
+#endif
+        if (run_failed) {
             fprintf(stderr, "cannot dump window %u\n", window);
             failed = 1;
             break;
         }
 
-        // Step 4: the errors; %.9g promotes the floats to double, which the model itself never does
+        // Step 4: the instruction count, when asked for
+#ifdef __riscv
+        if (counts != NULL &&
+            fprintf(counts, COUNTS_LINE, window, after - before) < 0) {
+            fprintf(stderr, "cannot write the counts\n");
+            failed = 1;
+            break;
+        }
+#endif
+
+        // Step 5: the errors; %.9g promotes the floats to double, which the model itself never does
         if (fprintf(
                 errors, ERRORS_LINE, window, (double)result.time,
                 (double)result.fft, (double)result.forecast
@@ -253,6 +298,10 @@ static int run_series(
     // The clean build has no dump code
     (void)dump;
     (void)dumped;
+#endif
+#ifndef __riscv
+    // The host build has no counter
+    (void)counts;
 #endif
     return failed;
 }
@@ -304,12 +353,30 @@ int main(int argc, char **argv) {
         rows_close(&reader);
         return 1;
     }
+    FILE *counts = NULL;
+#ifdef __riscv
+    if (options.counts_path != NULL) {
+        counts = fopen(options.counts_path, "w");
+        if (counts == NULL || fputs(COUNTS_HEADER, counts) == EOF) {
+            fprintf(stderr, "cannot write %s\n", options.counts_path);
+            if (counts != NULL) {
+                fclose(counts);
+            }
+            fclose(errors);
+            rows_close(&reader);
+            return 1;
+        }
+    }
+#endif
     struct tdump *dump_target = NULL;
 #ifdef TSPULSE_DUMP
     struct tdump dump;
     if (options.has_dump_window) {
         if (tdump_open(&dump, options.dump_path)) {
             fprintf(stderr, "cannot write %s\n", options.dump_path);
+            if (counts != NULL) {
+                fclose(counts);
+            }
             fclose(errors);
             rows_close(&reader);
             return 1;
@@ -321,13 +388,20 @@ int main(int argc, char **argv) {
     // Step 4: the series. Every window reads the FFT's cosine table, so it is filled first
     fft_setup();
     int dumped = 0;
-    int failed = run_series(&options, &reader, errors, dump_target, &dumped);
+    int failed =
+        run_series(&options, &reader, errors, counts, dump_target, &dumped);
 
     // Step 5: close everything, and check that the dump window was reached
     if (fclose(errors) != 0) {
         fprintf(stderr, "cannot finish %s\n", options.errors_path);
         failed = 1;
     }
+#ifdef __riscv
+    if (counts != NULL && fclose(counts) != 0) {
+        fprintf(stderr, "cannot finish %s\n", options.counts_path);
+        failed = 1;
+    }
+#endif
 #ifdef TSPULSE_DUMP
     if (dump_target != NULL && tdump_close(&dump)) {
         fprintf(stderr, "cannot finish %s\n", options.dump_path);
