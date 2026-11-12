@@ -23,3 +23,6 @@ REFERENCE_FOLDER = Path("reference")
 
 # The host-against-Spike check, one folder per machine and one per unit inside it
 SPIKE_CHECK_FOLDER = Path("results") / "spike-check"
+
+# The benchmark's runs, one folder per label holding every machine's units
+BENCHMARK_FOLDER = Path("results") / "benchmark"

@@ -27,6 +27,7 @@ compare-reference = "score.compare:main"
 prepare-rows = "score.prepare:main"
 check-model = "score.check:main"
 check-spike = "score.spike_check:main"
+benchmark = "score.benchmark.cli:main"
 
 # Dependencies for working on the code, which `uv sync` installs and the package never ships (PEP 735)
 [dependency-groups]

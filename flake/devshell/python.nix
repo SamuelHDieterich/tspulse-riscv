@@ -81,6 +81,17 @@
           exec uv run --locked --project "$(git rev-parse --show-toplevel)/scripts/score" check-spike "$@"
         '';
       };
+
+      benchmark = pkgs.writeShellApplication {
+        name = "benchmark";
+        runtimeInputs = with pkgs; [
+          git # finds the worktree root, and records its commit with each result
+          uv # runs the command from its venv
+        ];
+        text = /* bash */ ''
+          exec uv run --locked --project "$(git rev-parse --show-toplevel)/scripts/score" benchmark "$@"
+        '';
+      };
     in
     {
       devShells.python = pkgs.mkShell {
@@ -94,6 +105,7 @@
           prepare-rows # turns a series into the row file the C program reads
           check-model # runs the C program's dump build on the reference windows and compares it
           check-spike # runs windows on the host and under Spike and checks they write the same bytes
+          benchmark # runs a labelled build's accuracy windows and counts its instructions under Spike
         ];
 
         # inputsFrom forwards shellHook but not env, so these are exported here.
