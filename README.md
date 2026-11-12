@@ -17,7 +17,7 @@ Final project for the Embedded Systems class (MIC08, UFRGS).
 You need [Nix](https://nixos.org/download/) with flakes enabled. Everything else comes from the repository.
 
 ```bash
-nix develop           # or: direnv allow, once per worktree
+nix develop           # or: direnv allow
 ```
 
 `flake.nix` is generated from `flake/` by [flake-file](https://github.com/vic/flake-file), so don't edit it by hand. Run `nix run .#write-flake` after changing inputs.
@@ -61,6 +61,37 @@ compare-reference $TSPULSE_DATA/reference/<series>/w<index>.tdump <dump>.tdump
 `compare-reference` lists every record, marks the first that differs by more than PyTorch's own float32 error, and exits 1 if any does.
 `--exact` requires identical bits instead, for comparing two C builds, and `--only PREFIX` limits the comparison to records whose names start with it.
 The `.tdump` format and its record names are specified in `scripts/score/src/score/tdump.py`.
+
+### Benchmark
+
+`benchmark` runs a build over the benchmark's windows and writes scored tables, inside the dev shell:
+
+```bash
+benchmark run tspulse/build/host tspulse/build/rv64 --label NAME    # runs the units; the same command resumes
+benchmark collect --label NAME [--against OTHER]                    # scores what is done, writes the tables
+benchmark all tspulse/build/host tspulse/build/rv64 --label NAME    # run, then collect
+```
+
+`run` has two stages:
+
+- **instructions** counts a few windows per series under Spike, and checks each against the host build byte for byte;
+- **accuracy** runs every window of the chosen `--scope`s on the host build: `screen` (each univariate working series' screen span) and `whole-python` (the 35 series the Python baseline ran whole), both by default.
+
+A label is one build and its settings. Running it again with other binaries or settings is refused: use another label, or `--redo` to start it over.
+
+- `--jobs N` and `--spike-jobs N` run that many units at once on the host and under Spike (default 1).
+- `--series STEM` keeps only the named series, and `--window-cap N` the first N windows of each scope.
+- `--shard K/N` runs one computer's share, for N computers sharing the data folder. Their builds must match: compare `sha256sum tspulse/build/host/tspulse tspulse/build/rv64/tspulse "$RISCV_PK"`.
+- `--isa`, `--spike-option`, `--accuracy-on spike` and `--host-check off` are for builds the host can't match, such as vector ones.
+
+Follow a run with `tail -f "$TSPULSE_DATA/results/benchmark/<label>/<machine>.log"`.
+Results go to `$TSPULSE_DATA/results/benchmark/<label>/`, and `collect` writes the tracked tables to `benchmark/results/<label>/`:
+
+- `accuracy.csv`: VUS-PR, VUS-ROC and AUC-PR per series, scope and head, beside the Python baseline's and IBM's values;
+- `instructions.csv`: the instructions of each counted window.
+
+`collect` can run during a run: it scores the series that are complete and lists the rest. `--against OTHER` adds each row's difference from another label.
+Each command exits 1 when a unit failed or differed or a series could not be scored. `collect` and `all` also exit 1 when a saved `result.json` can't be read or came from other binaries. Each of these is listed as a `problem:` line.
 
 ## Benchmark series
 
@@ -164,6 +195,7 @@ spike --isa=rv64gc_zicntr "$RISCV_PK" build/rv64/tspulse ROWS ERRORS --windows S
 ```
 
 `$RISCV_PK` is the proxy kernel (pk) the dev shell provides, since Spike does not search `PATH` for it.
+`--counts PATH` writes each window's instruction count to `PATH`. Only the RISC-V build has it.
 The rv64 build carries its own `_open`, because pk reads the open flags as Linux numbers and newlib's differ.
 
 Spike is slow: with `-g`, a window takes roughly a minute per channel, so a 55-channel window takes close to an hour.
@@ -182,7 +214,7 @@ The reference stage runs the dump build on each of the 7 reference windows and c
 `--stage reference|series|all` picks the stages (default `all`).
 `--reference LABEL` (such as `flat/w0`) and `--series NAME` (a CSV name without `.csv`) can be repeated, and each keeps only the named units of its own stage. The other stage still runs in full unless `--stage` leaves it out: `--stage reference --reference flat/w0` runs just that one unit.
 `--jobs N` runs that many units at once, one Spike each, which is limited by the cores and the memory of the computer. It defaults to 1.
-`--work DIR` moves the row files and the scratch errors and dumps, which default to `tspulse/build/check-spike` in the worktree.
+`--work DIR` moves the row files and the scratch errors and dumps, which default to `tspulse/build/check-spike` in the repository.
 
 Each unit writes its result under `$TSPULSE_DATA/results/spike-check/<machine>/<unit>/`, and the command rewrites a tidy `results.csv` with one row per unit in `<machine>/` as units complete.
 `--machine NAME` labels the computer, so several can share the data folder. It defaults to the hostname.

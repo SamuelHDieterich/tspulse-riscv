@@ -14,7 +14,7 @@ import os
 import shutil
 import signal
 import socket
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -37,6 +37,7 @@ from score.benchmark.results import (
 )
 from score.benchmark.scope import Scope, Series, read_series
 from score.benchmark.stage import StageTally, run_stage, split_done
+from score.benchmark.tables import TABLES_FOLDER
 from score.benchmark.units import (
     HOST_CHUNK_CHANNEL_WINDOWS,
     SPIKE_CHUNK_CHANNEL_WINDOWS,
@@ -81,6 +82,10 @@ ISA_SEPARATOR = "_"
 
 # Names that a label or a machine can't take, since each names a folder or a file
 RESERVED_NAMES = ("", ".", "..")
+
+# Exit codes: 1 is a failed or differing unit, 3 is a call refused before any stage ran, and 130 is the conventional code of a call stopped by Ctrl-C or SIGTERM
+EXIT_REFUSED = 3
+EXIT_INTERRUPTED = 130
 
 # The accuracy scopes a call runs when none is named
 DEFAULT_SCOPES = [Scope.SCREEN, Scope.WHOLE_PYTHON]
@@ -134,19 +139,44 @@ class StagePlan:
     rebuild_table: bool
 
 
+@dataclass(frozen=True)
+class _StageRun:
+    """A stage's plan and what is left of it to run.
+
+    Attributes
+    ----------
+    stage : Stage
+        The stage.
+    plan : StagePlan
+        How the stage runs.
+    pending : list[AccuracyUnit] or list[InstructionUnit]
+        The units without a result.
+    skipped : int
+        How many units already had one.
+    stored_differing : int
+        Skipped instruction units whose stored result differs from the host.
+    """
+
+    stage: Stage
+    plan: StagePlan
+    pending: list[AccuracyUnit] | list[InstructionUnit]
+    skipped: int
+    stored_differing: int
+
+
 # ░█▄█░█▀▀░▀█▀░█░█░█▀█░█▀▄░█▀▀
 # ░█░█░█▀▀░░█░░█▀█░█░█░█░█░▀▀█
 # ░▀░▀░▀▀▀░░▀░░▀░▀░▀▀▀░▀▀░░▀▀▀
 
 
 def _write_rows(
-    units: list[AccuracyUnit] | list[InstructionUnit], data: Path, settings: Settings
+    units: Sequence[AccuracyUnit | InstructionUnit], data: Path, settings: Settings
 ) -> None:
-    """Write the row files the units need and the work folder lacks, before any unit starts, so no two units write the same file.
+    """Write the row files the units need and the work folder lacks, before any stage starts, so no two units write the same file.
 
     Parameters
     ----------
-    units : list[AccuracyUnit] or list[InstructionUnit]
+    units : Sequence[AccuracyUnit | InstructionUnit]
         The units about to run.
     data : Path
         The folder with the data.
@@ -156,7 +186,7 @@ def _write_rows(
     Raises
     ------
     typer.Exit
-        With code 1 when a series' CSV is missing or can't be turned into a row file.
+        With `EXIT_REFUSED` when a series' CSV is missing or can't be turned into a row file.
     """
 
     for series in sorted({unit.series for unit in units}):
@@ -167,12 +197,12 @@ def _write_rows(
         csv_path = _find_series(data, series)
         if csv_path is None:
             typer.echo(f"No series {series} under {data}.", err=True)
-            raise typer.Exit(1)
+            raise typer.Exit(EXIT_REFUSED)
         try:
             write_rows(csv_path, rows_path)
         except (OSError, ValueError, KeyError) as error:
             typer.echo(f"Cannot read {csv_path}: {error}", err=True)
-            raise typer.Exit(1) from error
+            raise typer.Exit(EXIT_REFUSED) from error
 
 
 def _check_label(
@@ -194,7 +224,7 @@ def _check_label(
     Raises
     ------
     typer.Exit
-        With code 1 when the stored identity can't be read or differs from this run's.
+        With `EXIT_REFUSED` when the stored identity can't be read or differs from this run's.
     """
 
     if redo:
@@ -209,7 +239,7 @@ def _check_label(
         stored = read_identity(label_folder)
     except (OSError, ValueError) as error:
         typer.echo(f"Cannot read the label's identity: {error}", err=True)
-        raise typer.Exit(1) from error
+        raise typer.Exit(EXIT_REFUSED) from error
     differences = identity.differences(stored) if stored is not None else []
     if differences:
         typer.echo(
@@ -218,7 +248,7 @@ def _check_label(
             + "\nUse another --label, or --redo to delete its results and start it again.",
             err=True,
         )
-        raise typer.Exit(1)
+        raise typer.Exit(EXIT_REFUSED)
 
 
 def _folder_name(value: str, option: str) -> str:
@@ -463,7 +493,7 @@ def run(
     Raises
     ------
     typer.Exit
-        With code 1 when something needed is missing, a program fails, or an instruction unit differs from the host, whether run now or already on disk.
+        With code 1 when a program fails or an instruction unit differs from the host, whether run now or already on disk, with `EXIT_REFUSED` when something needed is missing or the label differs, before any stage ran, and with `EXIT_INTERRUPTED` after Ctrl-C or SIGTERM.
     """
 
     # SIGTERM otherwise ends the parent without unwinding, and its Spikes keep running. As Ctrl-C it kills them first
@@ -493,14 +523,14 @@ def run(
     # Step 2: the data folder, Spike, pk and the binaries, hashed once so the skip decision and every result use the same values
     if data is None:
         typer.echo("No data folder: set $TSPULSE_DATA or pass --data.", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(EXIT_REFUSED)
     pk = os.environ.get(PK_VARIABLE)
     if not pk or shutil.which("spike") is None:
         typer.echo(
             f"Spike or ${PK_VARIABLE} is missing. Run this inside the dev shell, from `nix develop`.",
             err=True,
         )
-        raise typer.Exit(1)
+        raise typer.Exit(EXIT_REFUSED)
     binaries = {
         HOST_ROLE: host_build.resolve() / CLEAN_BINARY,
         RV64_ROLE: rv64_build.resolve() / CLEAN_BINARY,
@@ -509,7 +539,7 @@ def run(
     for path in binaries.values():
         if not path.is_file():
             typer.echo(f"Not found: {path}", err=True)
-            raise typer.Exit(1)
+            raise typer.Exit(EXIT_REFUSED)
     sha256 = {role: _sha256(path) for role, path in binaries.items()}
 
     # Step 3: the series asked for, checked before the label's folder is made
@@ -531,7 +561,10 @@ def run(
         machine=machine,
         commit=_git(top, "rev-parse", "HEAD"),
         tree=_git(top, "rev-parse", "HEAD^{tree}"),
-        dirty=bool(_git(top, "status", "--porcelain")),
+        # The tables `collect` writes under the tracked results folder are not the program's state, so a mid-run collect must not turn the run dirty
+        dirty=bool(
+            _git(top, "status", "--porcelain", "--", ".", f":(exclude){TABLES_FOLDER}")
+        ),
         sha256=sha256,
     )
     settings = Settings(
@@ -564,9 +597,10 @@ def run(
     )
     _check_label(label_folder, identity, redo, log)
 
-    # Step 6: each stage's units, largest first, without those already done; then the stage
+    # Step 6: each stage's pending units; every row file they need is written before any unit runs, so an unreadable series refuses the call before any stage runs
     tally = StageTally()
     try:
+        plans: list[_StageRun] = []
         for current in stages:
             plan = _stage_plan(
                 current,
@@ -581,27 +615,31 @@ def run(
                 spike_jobs,
             )
             pending, skipped, stored_differing = split_done(plan.units, settings, log)
-            _write_rows(pending, data, settings)
+            plans.append(_StageRun(current, plan, pending, skipped, stored_differing))
+        _write_rows([unit for item in plans for unit in item.pending], data, settings)
+
+        # Step 7: the stages
+        for item in plans:
             stage_tally = run_stage(
-                current,
-                pending,
-                skipped,
-                plan.runner,
-                plan.jobs,
-                plan.seconds_per_channel_window,
+                item.stage,
+                item.pending,
+                item.skipped,
+                item.plan.runner,
+                item.plan.jobs,
+                item.plan.seconds_per_channel_window,
                 settings,
                 log,
-                plan.rebuild_table,
+                item.plan.rebuild_table,
             )
             tally.failed += stage_tally.failed
-            tally.differing += stage_tally.differing + stored_differing
+            tally.differing += stage_tally.differing + item.stored_differing
     except KeyboardInterrupt:
         log.line(
             "Interrupted: every program started was stopped; run the same command again to resume."
         )
-        raise typer.Exit(1) from None
+        raise typer.Exit(EXIT_INTERRUPTED) from None
 
-    # Step 7: the verdict
+    # Step 8: the verdict
     if tally.failed or tally.differing:
         log.line(
             f"Finished with {tally.failed} failed and {tally.differing} differing units."

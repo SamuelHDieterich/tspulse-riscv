@@ -196,9 +196,9 @@ def run_stage[UnitT: (AccuracyUnit, InstructionUnit)](
                     tally.failed += 1
                 elif isinstance(outcome, InstructionResult):
                     tally.differing += outcome.identical is False
-                    tally.failed += rebuild_table and not _rewrite_table(
-                        settings, log, reported
-                    )
+                    # A failed write here is only logged: Step 3 writes the table again and counts a failure only if that write fails too
+                    if rebuild_table:
+                        _rewrite_table(settings, log, reported)
                 log.line(
                     progress.finished(unit.name, unit.cost, _detail(outcome, unit.cost))
                 )
@@ -210,9 +210,10 @@ def run_stage[UnitT: (AccuracyUnit, InstructionUnit)](
             settings.processes.stop()
             raise
 
-    # Step 3: the table once more, even when every unit was skipped, so a table a failed write left stale or missing is rebuilt from the saved results
+    # Step 3: rebuild the table from the saved results, even when every unit was skipped, so a failed write earlier is repaired
     if rebuild_table:
-        tally.failed += not _rewrite_table(settings, log, reported)
+        if not _rewrite_table(settings, log, reported):
+            tally.failed += 1
 
     # Step 4: the end line
     log.line(

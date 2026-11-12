@@ -21,6 +21,7 @@ from score.benchmark.results import (
     NOT_CHECKED,
     SPIKE_STDOUT_FILE,
     STDERR_FILE,
+    WINDOW_COLUMN,
     AccuracyResult,
     HostCheck,
     Identical,
@@ -49,9 +50,11 @@ from score.spike_results import RESULT_FILE
 WINDOWS_OPTION = "--windows"
 COUNTS_OPTION = "--counts"
 
-# The first column of the program's errors CSV, and the counts CSV's header
-WINDOW_COLUMN = "window"
+# The counts CSV's header
 COUNTS_HEADER = "window,instructions"
+
+# A unit's outcome: its result, a message when it failed, or None when the call is stopping
+Outcome = AccuracyResult | InstructionResult | str | None
 
 
 # ░█▀▀░█░░░█▀█░█▀▀░█▀▀░█▀▀░█▀▀
@@ -141,10 +144,6 @@ class Settings:
             str(self.pk),
             str(self.rv64_binary),
         ]
-
-
-# A unit's outcome: its result, a message when it failed, or None when the call is stopping
-Outcome = AccuracyResult | InstructionResult | str | None
 
 
 # ░█▄█░█▀▀░▀█▀░█░█░█▀█░█▀▄░█▀▀
@@ -249,7 +248,7 @@ def _fresh_folders(
     result_folder.mkdir(parents=True, exist_ok=True)
     scratch.mkdir(parents=True, exist_ok=True)
 
-    # The result goes first, so a run cut short leaves the unit to rerun; the other files would otherwise sit beside this run's
+    # The result goes first, so a run cut short leaves the unit to rerun, and the other files are cleared so none of an earlier run's sits beside this run's
     for name in (RESULT_FILE, *names):
         (result_folder / name).unlink(missing_ok=True)
 

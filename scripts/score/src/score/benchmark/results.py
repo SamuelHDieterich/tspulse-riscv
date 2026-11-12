@@ -18,8 +18,17 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
+# External
+import numpy as np
+
 # Internal
-from score.benchmark.units import ACCURACY_FOLDER, INSTRUCTIONS_FOLDER
+from score.benchmark.units import (
+    ACCURACY_FOLDER,
+    INSTRUCTIONS_FOLDER,
+    SCORES_FOLDER,
+    AccuracyUnit,
+    InstructionUnit,
+)
 from score.kind import Kind
 from score.spike_results import RESULT_FILE, _replace
 
@@ -30,6 +39,9 @@ from score.spike_results import RESULT_FILE, _replace
 
 # The label's identity, in the label's folder
 LABEL_FILE = "label.json"
+
+# The first column of an errors CSV, which the head columns follow
+WINDOW_COLUMN = "window"
 
 # What an accuracy unit keeps
 ERRORS_FILE = "errors.csv"
@@ -390,6 +402,84 @@ def stored_result(folder: Path, sha256: dict[str, str]) -> dict[str, Any] | None
     return stored
 
 
+def read_errors(path: Path, start: int, stop: int) -> dict[str, np.ndarray]:
+    """Read an accuracy unit's errors CSV, taking each head's column by its header name.
+
+    Parameters
+    ----------
+    path : Path
+        The unit's `errors.csv`.
+    start : int
+        The unit's first window.
+    stop : int
+        One past the unit's last window.
+
+    Returns
+    -------
+    dict[str, np.ndarray]
+        Per head in the file's header, one float32 error per window `[start, stop)`.
+
+    Raises
+    ------
+    ValueError
+        When the header doesn't start with `window`, or the windows are not exactly `[start, stop)` in order.
+    OSError
+        When the file can't be read.
+    """
+
+    # The program prints each float32 error with 9 significant digits, which read back as float32 exactly
+    with path.open() as file:
+        header = file.readline().strip().split(",")
+    table = np.loadtxt(path, delimiter=",", skiprows=1, ndmin=2)
+    if header[0] != WINDOW_COLUMN or table.shape != (stop - start, len(header)):
+        raise ValueError(f"{path} does not hold windows {start} to {stop - 1}")
+    if not np.array_equal(table[:, 0], np.arange(start, stop)):
+        raise ValueError(f"{path} does not hold windows {start} to {stop - 1} in order")
+    return {
+        head: table[:, column].astype(np.float32)
+        for column, head in enumerate(header)
+        if column
+    }
+
+
+def find_results[UnitT: (AccuracyUnit, InstructionUnit)](
+    label_folder: Path, units: list[UnitT], sha256: dict[str, str]
+) -> tuple[dict[UnitT, dict[str, Any]], list[str]]:
+    """Read the `result.json` of every unit that has one made by the label's binaries.
+
+    Parameters
+    ----------
+    label_folder : Path
+        The label's folder.
+    units : list[AccuracyUnit] or list[InstructionUnit]
+        The units to look for.
+    sha256 : dict[str, str]
+        The label's binary hashes, from `label.json`.
+
+    Returns
+    -------
+    tuple[dict, list[str]]
+        The stored results of the units that are done, and one message per `result.json` that was rejected because its hashes differ from the label's or it can't be read. A rejected unit counts as not done.
+    """
+
+    found = {}
+    problems = []
+    for unit in units:
+        folder = label_folder / unit.folder
+        try:
+            stored = stored_result(folder, sha256)
+        except (OSError, ValueError) as error:
+            problems.append(f"{unit.name}: unreadable result: {error}")
+            continue
+        if stored is not None:
+            found[unit] = stored
+        elif (folder / RESULT_FILE).is_file():
+            problems.append(
+                f"{unit.name}: result.json rejected, its binaries differ from label.json's"
+            )
+    return found, problems
+
+
 def write_instruction_table(label_folder: Path, machine: str) -> tuple[Path, list[str]]:
     """Rebuild `instructions/<machine>.csv` from this machine's instruction results.
 
@@ -441,7 +531,7 @@ def write_instruction_table(label_folder: Path, machine: str) -> tuple[Path, lis
 
 
 def delete_label_results(label_folder: Path) -> None:
-    """Delete a label's identity and every machine's unit results, keeping the logs.
+    """Delete a label's identity, every machine's unit results and the scores made from them, keeping the logs.
 
     Parameters
     ----------
@@ -450,5 +540,5 @@ def delete_label_results(label_folder: Path) -> None:
     """
 
     (label_folder / LABEL_FILE).unlink(missing_ok=True)
-    for name in (ACCURACY_FOLDER, INSTRUCTIONS_FOLDER):
+    for name in (ACCURACY_FOLDER, INSTRUCTIONS_FOLDER, SCORES_FOLDER):
         shutil.rmtree(label_folder / name, ignore_errors=True)

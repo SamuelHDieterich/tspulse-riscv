@@ -61,6 +61,8 @@ class Series:
         The CSV's name without `.csv`.
     kind : Kind
         The archive it comes from.
+    source : str
+        The original dataset, from `benchmark/series.csv`.
     channels : int
         How many channels it has.
     windows : int
@@ -73,6 +75,7 @@ class Series:
 
     stem: str
     kind: Kind
+    source: str
     channels: int
     windows: int
     screen: tuple[int, int] | None
@@ -144,6 +147,7 @@ def read_series(top: Path) -> list[Series]:
             Series(
                 stem=Path(row["file_name"]).stem,
                 kind=Kind(row["kind"]),
+                source=row["source"],
                 channels=int(row["channels"]),
                 windows=int(row["windows"]),
                 screen=screen,

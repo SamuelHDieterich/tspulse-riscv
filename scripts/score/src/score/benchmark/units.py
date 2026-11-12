@@ -37,6 +37,9 @@ SPIKE_CHUNK_CHANNEL_WINDOWS = 100
 ACCURACY_FOLDER = "accuracy"
 INSTRUCTIONS_FOLDER = "instructions"
 
+# The folder under the label's holding `collect`'s scored arrays, which depend on the label's binaries
+SCORES_FOLDER = "scores"
+
 # How many `_`-separated fields of a series' stem name it in a log line, such as `090_SVDB`
 SHORT_NAME_FIELDS = 2
 
