@@ -14,6 +14,7 @@ import typer
 from score.benchmark.all import run_all
 from score.benchmark.collect import collect
 from score.benchmark.run import run
+from score.profile.cli import profile
 
 
 # ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀▀░█░█░█▀▄░█▀█░▀█▀░▀█▀░█▀█░█▀█
@@ -28,6 +29,9 @@ app.command("collect", help=inspect.cleandoc(collect.__doc__ or "").partition("\
 )
 app.command("all", help=inspect.cleandoc(run_all.__doc__ or "").partition("\n")[0])(
     run_all
+)
+app.command("profile", help=inspect.cleandoc(profile.__doc__ or "").partition("\n")[0])(
+    profile
 )
 
 

@@ -32,7 +32,7 @@ def kernel_counts(difference: Histogram, table: FunctionTable) -> dict[str, int]
     Raises
     ------
     ProfileError
-        If an address is in no function, or a function's difference is negative.
+        If an address is in no function, or a program function's difference is negative (pk's slice is exempt).
     """
 
     return largest_first(split_by_function(difference, table))

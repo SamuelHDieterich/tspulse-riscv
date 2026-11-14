@@ -140,7 +140,7 @@ def weights_row(elf: Path, weights_table: Path) -> MemoryRow:
 def code_rows(
     elf: Path, table: FunctionTable, difference: Histogram
 ) -> list[MemoryRow]:
-    """Size the code, and the share of it that a window ran.
+    """Size the code, and the share of it that the measured windows ran.
 
     Parameters
     ----------
@@ -149,12 +149,12 @@ def code_rows(
     table : FunctionTable
         The functions of `elf`.
     difference : Histogram
-        One window's instructions per address, from the differential runs.
+        Instructions per address of the measured windows, added up, from the differential runs.
 
     Returns
     -------
     list[MemoryRow]
-        `.text`, then the functions the window ran, pk's slice left out.
+        `.text`, then the functions any measured window ran, pk's slice left out.
 
     Raises
     ------
@@ -175,10 +175,10 @@ def code_rows(
         MemoryRow("code", TEXT_SECTION, sections[TEXT_SECTION], "", "section size"),
         MemoryRow(
             "code",
-            "functions the window ran",
+            "functions the windows ran",
             ran_bytes,
             "",
-            f"symbol sizes of the {len(ran)} functions the histogram saw",
+            f"symbol sizes of the {len(ran)} functions the histograms saw",
         ),
     ]
 
@@ -304,7 +304,7 @@ def memory_rows(
     source_folder : Path
         The `tspulse` source folder.
     difference : Histogram
-        One window's instructions per address.
+        Instructions per address, added up over the measured windows.
 
     Returns
     -------

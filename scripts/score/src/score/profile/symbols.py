@@ -182,14 +182,17 @@ def split_by_function(difference: Histogram, table: FunctionTable) -> dict[str, 
     Raises
     ------
     ProfileError
-        If an address is in no function, or a function's total is negative.
+        If an address is in no function, or a function's total is negative (pk's slice excepted).
     """
 
     totals: dict[str, int] = {}
     for address, count in difference.items():
         owner = table.owner(address)
         totals[owner] = totals.get(owner, 0) + count
-    negative = {name: count for name, count in totals.items() if count < 0}
+    # pk's slice is its own syscall and page-fault work, which varies slightly between runs, so it may be slightly negative and is kept as measured instead of failing the split
+    negative = {
+        name: count for name, count in totals.items() if count < 0 and name != PK_SLICE
+    }
     if negative:
         raise ProfileError(f"negative instruction counts per function: {negative}")
     return totals
