@@ -17,7 +17,15 @@
 # ░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀
 
 # Listed in the order they appear in a build's name
-SETTINGS := UNROLL
+SETTINGS := LINEAR UNROLL
+
+# The blocked kernel keeps each output's sum in the plain loop's order, so the result stays exact
+LINEAR ?= plain
+LINEAR_NAME := linear
+LINEAR_DEFAULT := plain
+LINEAR_VALUES := plain blocked
+LINEAR_REPLACES := kernels/linear/plain.c
+LINEAR_SOURCES_blocked := kernels/linear/blocked.c
 
 # GCC unrolls without reordering the float sum, so the result stays exact
 UNROLL ?= off
