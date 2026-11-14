@@ -196,6 +196,19 @@ The clean build's buffers are static, except three allocated once at start: the 
 
 The model itself is all float, with no double. Double appears only in standardizing the history, which scikit-learn also does in double, and in building the FFT's twiddle table once at start.
 
+### Variants
+
+A setting picks alternative C code or compiler flags for a build, as a Make variable:
+
+```bash
+build-variant --list              # prints every setting with its values and its default
+build-variant [SETTING=value …]   # builds host and rv64 with those settings, and prints the two build folders
+```
+
+Pass `-j` through `MAKEFLAGS`, as in `MAKEFLAGS=-j8 build-variant`. A build that sets nothing is the baseline, in `tspulse/build/host` and `tspulse/build/rv64`. Any other build lands in `tspulse/build/<name>/host` and `.../rv64`, where the name lists the settings that differ from their default, as in `linear-blocked+unroll-on`. A build that sets `CC` or `ARCH_FLAGS` on the command line gets `+custom` added to its name.
+
+Each build folder holds a `build.json` with the build's name, settings, compiler, flags, source files, commit, whether the tree was dirty, and the hash of each binary. `benchmark run`, `benchmark profile` and `time-host` refuse a binary whose hash differs from its `build.json`, and say to rebuild.
+
 ### Row files
 
 Python only turns a CSV into a binary row file, which the C program reads. The format is specified in `scripts/score/src/score/rows.py`: the raw float64 values, row by row, with the average and spread of each channel over the whole file. The program standardizes each window itself.

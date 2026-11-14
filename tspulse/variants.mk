@@ -1,0 +1,48 @@
+# The settings table and what a choice of values turns into, included by the Makefile before it picks the build folder
+# Variables only, so the Makefile's default goal stays `all`
+# A setting is a Make variable with a fixed list of values, set on the command line (`make LINEAR=blocked`); a build that sets nothing is the baseline
+# To add a setting, append its name to SETTINGS and give it the entries below, where S stands for its name and V for one of its values:
+#   S ?= <default value>
+#   S_NAME := <lower-case name, used in the build's name and folder>
+#   S_DEFAULT := <default value>
+#   S_VALUES := <every allowed value, in lower case>
+#   S_SOURCES_V   files compiled for V, in place of the baseline files in S_REPLACES
+#   S_REPLACES    the baseline files that a value with S_SOURCES_V swaps out
+#   S_DEFINES_V   -D macros for V
+#   S_FLAGS_V     compiler flags for V, on both targets, so the host build keeps matching rv64 bit for bit
+#   S_HOST_FLAGS_V, S_RV64_FLAGS_V   compiler flags for V on one target
+
+# ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀▀
+# ░█░░░█░█░█░█░█▀▀░░█░░█░█
+# ░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀
+
+# Listed in the order they appear in a build's name
+SETTINGS :=
+
+# ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
+# ░▀▀█░█░█░█░█░█▀▄░█░░░█▀▀░▀▀█
+# ░▀▀▀░▀▀▀░▀▀▀░▀░▀░▀▀▀░▀▀▀░▀▀▀
+
+# A value outside the list would silently build the baseline's code under another name, and a value of several words passes the filter when one of them is allowed
+$(foreach s,$(SETTINGS),$(if $(and $(filter 1,$(words $($(s)))),$(filter $($(s)),$($(s)_VALUES))),,$(error $(s)=$($(s)) is not allowed, expected one of: $($(s)_VALUES))))
+
+# A build is named after its settings that differ from the default, in table order, as `<setting>-<value>` joined with +
+# `+custom` marks a compiler, architecture or flag choice made on the command line, which no setting accounts for
+# A setting left at its default leaves an extra space between its neighbours, which strip removes so it never turns into a stray +
+VARIANT_PARTS := $(strip $(foreach s,$(SETTINGS),$(if $(filter $($(s)),$($(s)_DEFAULT)),,$($(s)_NAME)-$($(s)))))
+VARIANT_CUSTOM := $(filter command line,$(foreach v,CC ARCH_FLAGS,$(origin $(v))))
+VARIANT_NAME := $(if $(VARIANT_PARTS),$(subst $() $(),+,$(VARIANT_PARTS)),baseline)$(if $(VARIANT_CUSTOM),+custom)
+
+# A value that names replacement files swaps out the setting's baseline files, and one that doesn't leaves them in
+VARIANT_REPLACING := $(foreach s,$(SETTINGS),$(if $($(s)_SOURCES_$($(s))),$(s)))
+VARIANT_REPLACED := $(foreach s,$(VARIANT_REPLACING),$($(s)_REPLACES))
+VARIANT_SOURCES := $(foreach s,$(VARIANT_REPLACING),$($(s)_SOURCES_$($(s))))
+
+# The program's file list for this build, given the baseline's
+variant_sources = $(filter-out $(VARIANT_REPLACED),$(1)) $(VARIANT_SOURCES)
+
+VARIANT_DEFINES := $(foreach s,$(SETTINGS),$($(s)_DEFINES_$($(s))))
+
+# The target's own flags come from the table's HOST or RV64 entries
+VARIANT_TARGET := $(if $(filter host,$(TARGET)),HOST,RV64)
+VARIANT_FLAGS := $(foreach s,$(SETTINGS),$($(s)_FLAGS_$($(s))) $($(s)_$(VARIANT_TARGET)_FLAGS_$($(s))))

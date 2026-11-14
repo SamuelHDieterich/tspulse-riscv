@@ -4,13 +4,17 @@
 # `make stack` compiles the program with `-fcallgraph-info=su`, which leaves a `.ci` file of stack frame sizes beside each object, and links nothing; `make TARGET=rv64` also builds them
 # `make check` runs the weight check and compares its dump with the one export-weights wrote from the safetensors file
 # Run inside the dev shell, after `download-weights`
+# Settings are Make variables listed in variants.mk, and `make settings` prints them with their values and defaults; `make LINEAR=blocked` would pick one
+# A build that sets nothing is the baseline, in build/<target>; any other lands in build/<name>/<target>, named after its non-default settings, as in build/linear-blocked+unroll-on/host
+# Every build writes a build.json beside its binaries, recording its settings, compiler, flags, files, commit and the binaries' hashes
 
 # ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀▀
 # ░█░░░█░█░█░█░█▀▀░░█░░█░█
 # ░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀
 
 TARGET ?= host
-BUILD := build/$(TARGET)
+include variants.mk
+BUILD := $(if $(filter baseline,$(VARIANT_NAME)),build/$(TARGET),build/$(VARIANT_NAME)/$(TARGET))
 GENERATED := build/generated
 
 # Fusing, vectorizing and the C standard change float results, so the host build is pinned to what rv64 does
@@ -25,9 +29,17 @@ else
 $(error unknown TARGET '$(TARGET)', expected host or rv64)
 endif
 
-CPPFLAGS += -I. -MMD -MP
-CFLAGS += $(ARCH_FLAGS) -Wall -Wextra
+# A command-line CFLAGS replaces the settings' flags and revin's -ffp-contract=off, so build.json would record flags the build never used
+$(if $(filter command line,$(origin CFLAGS)),$(error Set ARCH_FLAGS instead of CFLAGS, so the settings' flags and revin's flags still apply))
+
+CPPFLAGS += -I. -MMD -MP $(VARIANT_DEFINES)
+CFLAGS += $(ARCH_FLAGS) -Wall -Wextra $(VARIANT_FLAGS)
 LDLIBS := -lm
+
+# PyTorch's RevIN does each step as its own tensor operation, in both directions, rounding after each, so the whole file is built without fused multiply-add
+# Fused, more scaled values land one ulp away from PyTorch's, and the alternating sum behind the FFT's base component (bin 256) magnifies those differences past its allowance on YAHOO w908
+REVIN_FILE := kernels/revin.c
+REVIN_FLAGS := -ffp-contract=off
 
 # The host build compiles newlib's erff and expf, because glibc's round differently and the host must match rv64 bit for bit
 # Without __OBSOLETE_MATH=0, x86 takes newlib's old code path: sf_exp.c compiles to nothing and sf_erf.o needs __ieee754_expf
@@ -43,9 +55,9 @@ SOURCES := io/tdump.c checks/weights.c
 OBJECTS := $(SOURCES:%.c=$(BUILD)/%.o)
 
 # The dump and profile builds define TSPULSE_DUMP or TSPULSE_PROFILE and keep their objects apart, so they never mix with the clean one
-KERNEL_SOURCES := kernels/add.c kernels/fft.c kernels/gelu.c kernels/layer_norm.c kernels/linear.c kernels/multiply.c kernels/revin.c kernels/softmax.c kernels/sum.c kernels/transpose.c
+KERNEL_SOURCES := kernels/add.c kernels/fft.c kernels/gelu.c kernels/layer_norm.c kernels/linear/plain.c kernels/multiply.c kernels/revin.c kernels/softmax.c kernels/sum.c kernels/transpose.c
 MODULE_SOURCES := modules/backbone.c modules/block.c modules/decoder.c modules/embedding.c modules/heads.c modules/mixer.c
-PROGRAM_SOURCES := tspulse.c io/rows.c model/history.c model/pass.c model/window.c $(KERNEL_SOURCES) $(MODULE_SOURCES)
+PROGRAM_SOURCES := $(call variant_sources,tspulse.c io/rows.c model/history.c model/pass.c model/window.c $(KERNEL_SOURCES) $(MODULE_SOURCES))
 PROGRAM_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/%.o)
 DUMP_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/dump/%.o) $(BUILD)/dump/io/tdump.o $(BUILD)/dump/io/dump.o
 
@@ -66,6 +78,16 @@ GENERATED_OBJECTS := $(GENERATED_SOURCES:$(GENERATED)/%.c=$(BUILD)/generated/%.o
 
 # The program needs only the weights, while the weight check also needs their table of names
 WEIGHTS_OBJECT := $(BUILD)/generated/weights.o
+
+# What the build compiles with, fixed when the Makefile is read
+# A recipe's $(CFLAGS) can carry the target-specific -ffp-contract=off of the object it belongs to, so the stamp and build.json never read it there
+# The compiler's resolved path is in the record, so a new compiler behind the same name rebuilds the objects
+# It is exported so the recipe reads it from the environment and quotes it, since the record's paths can hold spaces
+export FLAGS_RECORD := $(CC) $(shell command -v $(CC)) | $(CPPFLAGS) | $(CFLAGS) | $(LDLIBS) | $(REVIN_FILE) $(REVIN_FLAGS) | $(NEWLIB_FLAGS) | $(PROGRAM_SOURCES)
+RECORDED_CPPFLAGS := $(strip $(filter-out -I%,$(CPPFLAGS)))
+RECORDED_CFLAGS := $(strip $(CFLAGS))
+RECORDED_LDLIBS := $(LDLIBS)
+OVERRIDDEN := $(foreach v,CC ARCH_FLAGS BUILD,$(if $(filter command line,$(origin $(v))),$(v)))
 
 # ░█▀▀░█▀▀░█▀█░█▀▀░█▀▄░█▀█░▀█▀░█▀█░█▀▄
 # ░█░█░█▀▀░█░█░█▀▀░█▀▄░█▀█░░█░░█░█░█▀▄
@@ -94,7 +116,7 @@ endif
 # ░░█░░█▀█░█▀▄░█░█░█▀▀░░█░░▀▀█
 # ░░▀░░▀░▀░▀░▀░▀▀▀░▀▀▀░░▀░░▀▀▀
 
-.PHONY: all check clean stack FORCE
+.PHONY: all check clean settings stack FORCE
 
 # The rv64 build keeps the call-graph objects fresh too, so the stack frames `benchmark profile` reads never lag behind the sources
 ifeq ($(TARGET),rv64)
@@ -102,7 +124,13 @@ PROFILE_PROGRAM := $(BUILD)/tspulse-profile
 STACK_TARGETS := $(STACK_OBJECTS)
 endif
 
-all: $(BUILD)/tspulse $(BUILD)/tspulse-dump $(PROFILE_PROGRAM) $(STACK_TARGETS) $(BUILD)/check-weights
+BINARIES := $(BUILD)/tspulse $(BUILD)/tspulse-dump $(PROFILE_PROGRAM) $(BUILD)/check-weights
+
+all: $(BINARIES) $(STACK_TARGETS) $(BUILD)/build.json
+
+# Each setting with its allowed values and its default
+settings:
+	@printf '%-12s %-24s %s\n' SETTING VALUES DEFAULT; $(foreach s,$(SETTINGS),printf '%-12s %-24s %s\n' '$(s)' '$($(s)_VALUES)' '$($(s)_DEFAULT)';)
 
 stack: $(STACK_OBJECTS)
 
@@ -147,9 +175,10 @@ $(OBJECTS) $(PROGRAM_OBJECTS) $(PLATFORM_OBJECTS): $(BUILD)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-# PyTorch's RevIN does each step as its own tensor operation, in both directions, rounding after each, so the whole file is built without fused multiply-add
-# Fused, more scaled values land one ulp away from PyTorch's, and the alternating sum behind the FFT's base component (bin 256) magnifies those differences past its allowance on YAHOO w908
-$(BUILD)/kernels/revin.o $(BUILD)/dump/kernels/revin.o $(BUILD)/profile/kernels/revin.o $(BUILD)/stack/kernels/revin.o: CFLAGS += -ffp-contract=off
+$(foreach d,$(BUILD) $(BUILD)/dump $(BUILD)/profile $(BUILD)/stack,$(d)/$(REVIN_FILE:.c=.o)): CFLAGS += $(REVIN_FLAGS)
+
+# Every object is rebuilt when the stamp of the build's flags and files changes
+$(OBJECTS) $(PROGRAM_OBJECTS) $(DUMP_OBJECTS) $(PROFILE_OBJECTS) $(STACK_OBJECTS) $(NEWLIB_OBJECTS) $(PLATFORM_OBJECTS) $(GENERATED_OBJECTS): $(BUILD)/flags
 
 $(DUMP_OBJECTS): $(BUILD)/dump/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -167,6 +196,49 @@ $(NEWLIB_OBJECTS): $(BUILD)/newlib/%.o: $(NEWLIB_SRC)/newlib/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(NEWLIB_FLAGS) -c $< -o $@
 
+# build.json is written by make itself, so no tool beyond the shell's sha256sum and git is needed
+# A string is escaped for JSON by doubling backslashes and escaping quotes, which covers every character a flag or path can hold here
+comma := ,
+json_var = "$(subst ",\",$(subst \,\\,$($(1))))"
+
+# A comma goes before every item but the first, because make can't join a list with commas without also splitting words that hold spaces
+json_sep = $(if $(filter $(1),$(firstword $(2))),,$(comma) )
+
+# The git fields are null outside a repository, and the dirty check leaves out the benchmark tables, which the tools write themselves
+CC_VERSION = $(shell $(CC) --version 2>/dev/null | head -n 1)
+GIT_COMMIT = $(shell git rev-parse HEAD 2>/dev/null)
+GIT_TREE = $(shell git rev-parse 'HEAD^{tree}' 2>/dev/null)
+GIT_DIRTY = $(shell git status --porcelain -- ':(top)' ':(top,exclude)benchmark/results' 2>/dev/null)
+GENERATED_DIR := $(CURDIR)/$(GENERATED)
+
+define BUILD_JSON
+{
+  "name": $(call json_var,VARIANT_NAME),
+  "target": $(call json_var,TARGET),
+  "settings": {$(foreach s,$(SETTINGS),$(call json_sep,$(s),$(SETTINGS))"$($(s)_NAME)": $(call json_var,$(s)))},
+  "cc": $(call json_var,CC),
+  "cc_version": $(call json_var,CC_VERSION),
+  "cppflags": $(call json_var,RECORDED_CPPFLAGS),
+  "cflags": $(call json_var,RECORDED_CFLAGS),
+  "ldlibs": $(call json_var,RECORDED_LDLIBS),
+  "file_flags": {"$(REVIN_FILE)": $(call json_var,REVIN_FLAGS)},
+  "sources": [$(foreach f,$(PROGRAM_SOURCES),$(call json_sep,$(f),$(PROGRAM_SOURCES))"$(f)")],
+  "overrides": {$(foreach v,$(OVERRIDDEN),$(call json_sep,$(v),$(OVERRIDDEN))"$(v)": $(call json_var,$(v)))},
+  "source_dir": $(call json_var,CURDIR),
+  "generated_dir": $(call json_var,GENERATED_DIR),
+  "commit": $(if $(GIT_COMMIT),"$(GIT_COMMIT)",null),
+  "tree": $(if $(GIT_TREE),"$(GIT_TREE)",null),
+  "dirty": $(if $(GIT_COMMIT),$(if $(GIT_DIRTY),true,false),null),
+  "sha256": {$(foreach b,$(BINARIES),$(call json_sep,$(b),$(BINARIES))"$(notdir $(b))": "$(firstword $(shell sha256sum $(b)))")}
+}
+endef
+
+# Always rewritten, so the commit and the dirty flag are those of the moment the binaries were last checked
+# The temporary file is renamed over it, so a half-written record never exists
+$(BUILD)/build.json: $(BINARIES) $(BUILD)/flags FORCE
+	@$(file >$@.tmp,$(BUILD_JSON))
+	@mv $@.tmp $@
+
 # ░█▀▀░█▀▀░█▀█░█▀▀░█▀▄░█▀█░▀█▀░█▀▀░█▀▄
 # ░█░█░█▀▀░█░█░█▀▀░█▀▄░█▀█░░█░░█▀▀░█░█
 # ░▀▀▀░▀▀▀░▀░▀░▀▀▀░▀░▀░▀░▀░░▀░░▀▀▀░▀▀░
@@ -177,6 +249,11 @@ $(GENERATED)/generator: FORCE
 	@mkdir -p $(@D); [ "$$(cat $@ 2>/dev/null)" = "$(GENERATOR)" ] || printf '%s\n' "$(GENERATOR)" > $@
 
 FORCE:
+
+# The flags and file list are recorded in a file that changes only with them, so the objects can depend on it
+# FORCE makes make compare on every run, and the file keeps its timestamp when nothing changed
+$(BUILD)/flags: FORCE
+	@mkdir -p $(@D); [ "$$(cat $@ 2>/dev/null)" = "$$FLAGS_RECORD" ] || printf '%s\n' "$$FLAGS_RECORD" > $@
 
 # A stamp rather than a grouped target, because export-weights leaves unchanged outputs alone
 # A grouped target would rerun it on every make once the safetensors file is touched
