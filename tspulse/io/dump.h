@@ -3,6 +3,7 @@
  * Hooks that write the model's inner outputs to a `.tdump` file, named as the PyTorch reference names them.
  *
  * Every hook is a macro that expands to nothing without `TSPULSE_DUMP`, so the clean build carries no dump code.
+ * With `TSPULSE_PROFILE` instead, `DUMP_PUSH` and `DUMP_POP` count instructions per module, and every other hook stays empty.
  * A record's name is the current path, built with `DUMP_PUSH` and `DUMP_POP`, then a dot and the name given to `DUMP`.
  * The path starts with the copy, such as `plain/` or `hidden03/`, then the PyTorch module path, such as `backbone.encoder_block`.
  * A module function writes its own output with an empty name, and its parts with their attribute names, after its caller pushed the module's name.
@@ -15,7 +16,16 @@
 #include <stdint.h>
 
 // Internal
+#include "io/profile.h"
 #include "io/tdump.h"
+
+#if defined(TSPULSE_DUMP) && defined(TSPULSE_PROFILE)
+#error "TSPULSE_DUMP and TSPULSE_PROFILE are different builds, define one"
+#endif
+#if defined(TSPULSE_PROFILE) && !(defined(__riscv) && __riscv_xlen == 64)
+#error                                                                         \
+    "TSPULSE_PROFILE reads the instruction counter, which only rv64 has, so it needs a 64-bit RISC-V target"
+#endif
 
 // ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀█░█▀█░▀█▀░█▀▀
 // ░█░░░█░█░█░█░▀▀█░░█░░█▀█░█░█░░█░░▀▀█
@@ -57,6 +67,14 @@
 
 /// The window's channel count, for the channel dimension in `DIMS`.
 #define DUMP_CHANNELS dump_channels()
+
+#elif defined(TSPULSE_PROFILE)
+
+// The profile build counts instructions per module, so only the path hooks do anything
+#define DUMP_BEGIN_CHANNEL(target, channel, channels) ((void)0)
+#define DUMP_PUSH(...) profile_push(__VA_ARGS__)
+#define DUMP_POP() profile_pop()
+#define DUMP(name, data, ndim, dims, channel_axis) ((void)0)
 
 #else
 

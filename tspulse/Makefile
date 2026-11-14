@@ -1,5 +1,7 @@
 # Builds the program and the weight check for the host (`make`) or for rv64gc, scalar (`make TARGET=rv64`)
 # `tspulse-dump` is the program with the code that writes inner outputs, which `check-model` runs, and `tspulse` carries none of it
+# `tspulse-profile`, built for rv64 only, reads the instruction counter at the same hooks to count instructions per module
+# `make stack` compiles the program with `-fcallgraph-info=su`, which leaves a `.ci` file of stack frame sizes beside each object, and links nothing; `make TARGET=rv64` also builds them
 # `make check` runs the weight check and compares its dump with the one export-weights wrote from the safetensors file
 # Run inside the dev shell, after `download-weights`
 
@@ -40,12 +42,18 @@ NEWLIB_FLAGS = -D__OBSOLETE_MATH=0 -I$(NEWLIB_HOST_INCLUDE) -I$(NEWLIB_SRC)/newl
 SOURCES := io/tdump.c checks/weights.c
 OBJECTS := $(SOURCES:%.c=$(BUILD)/%.o)
 
-# The program is built twice: the dump build defines TSPULSE_DUMP and keeps its objects apart, so it never mixes with the clean one
+# The dump and profile builds define TSPULSE_DUMP or TSPULSE_PROFILE and keep their objects apart, so they never mix with the clean one
 KERNEL_SOURCES := kernels/add.c kernels/fft.c kernels/gelu.c kernels/layer_norm.c kernels/linear.c kernels/multiply.c kernels/revin.c kernels/softmax.c kernels/sum.c kernels/transpose.c
 MODULE_SOURCES := modules/backbone.c modules/block.c modules/decoder.c modules/embedding.c modules/heads.c modules/mixer.c
 PROGRAM_SOURCES := tspulse.c io/rows.c model/history.c model/pass.c model/window.c $(KERNEL_SOURCES) $(MODULE_SOURCES)
 PROGRAM_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/%.o)
 DUMP_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/dump/%.o) $(BUILD)/dump/io/tdump.o $(BUILD)/dump/io/dump.o
+
+# The profile build keeps its own objects too, and has no host form, because it reads a RISC-V counter
+PROFILE_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/profile/%.o) $(BUILD)/profile/io/profile.o
+
+# The stack build is the clean program's objects with the call graph written beside them, so the frame sizes are those of the real build
+STACK_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/stack/%.o)
 
 ifeq ($(TARGET),host)
 NEWLIB_OBJECTS := $(NEWLIB_FILES:%.c=$(BUILD)/newlib/%.o)
@@ -86,9 +94,17 @@ endif
 # ░░█░░█▀█░█▀▄░█░█░█▀▀░░█░░▀▀█
 # ░░▀░░▀░▀░▀░▀░▀▀▀░▀▀▀░░▀░░▀▀▀
 
-.PHONY: all check clean FORCE
+.PHONY: all check clean stack FORCE
 
-all: $(BUILD)/tspulse $(BUILD)/tspulse-dump $(BUILD)/check-weights
+# The rv64 build keeps the call-graph objects fresh too, so the stack frames `benchmark profile` reads never lag behind the sources
+ifeq ($(TARGET),rv64)
+PROFILE_PROGRAM := $(BUILD)/tspulse-profile
+STACK_TARGETS := $(STACK_OBJECTS)
+endif
+
+all: $(BUILD)/tspulse $(BUILD)/tspulse-dump $(PROFILE_PROGRAM) $(STACK_TARGETS) $(BUILD)/check-weights
+
+stack: $(STACK_OBJECTS)
 
 # Run the check program: on the host directly, on rv64 under Spike
 check: $(BUILD)/check-weights $(GENERATED)/weights.tdump
@@ -119,6 +135,9 @@ $(BUILD)/tspulse: $(PROGRAM_OBJECTS) $(WEIGHTS_OBJECT) $(NEWLIB_OBJECTS) $(PLATF
 $(BUILD)/tspulse-dump: $(DUMP_OBJECTS) $(WEIGHTS_OBJECT) $(NEWLIB_OBJECTS) $(PLATFORM_OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
+$(BUILD)/tspulse-profile: $(PROFILE_OBJECTS) $(WEIGHTS_OBJECT) $(NEWLIB_OBJECTS) $(PLATFORM_OBJECTS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
 # A member with transposed dimensions has the right size but only draws an excess-elements warning, so generated objects build with -Werror
 $(GENERATED_OBJECTS): $(BUILD)/generated/%.o: $(GENERATED)/%.c
 	@mkdir -p $(dir $@)
@@ -130,11 +149,19 @@ $(OBJECTS) $(PROGRAM_OBJECTS) $(PLATFORM_OBJECTS): $(BUILD)/%.o: %.c
 
 # PyTorch's RevIN does each step as its own tensor operation, in both directions, rounding after each, so the whole file is built without fused multiply-add
 # Fused, more scaled values land one ulp away from PyTorch's, and the alternating sum behind the FFT's base component (bin 256) magnifies those differences past its allowance on YAHOO w908
-$(BUILD)/kernels/revin.o $(BUILD)/dump/kernels/revin.o: CFLAGS += -ffp-contract=off
+$(BUILD)/kernels/revin.o $(BUILD)/dump/kernels/revin.o $(BUILD)/profile/kernels/revin.o $(BUILD)/stack/kernels/revin.o: CFLAGS += -ffp-contract=off
 
 $(DUMP_OBJECTS): $(BUILD)/dump/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DTSPULSE_DUMP -c $< -o $@
+
+$(PROFILE_OBJECTS): $(BUILD)/profile/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DTSPULSE_PROFILE -c $< -o $@
+
+$(STACK_OBJECTS): $(BUILD)/stack/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -fcallgraph-info=su -c $< -o $@
 
 $(NEWLIB_OBJECTS): $(BUILD)/newlib/%.o: $(NEWLIB_SRC)/newlib/%.c
 	@mkdir -p $(dir $@)
@@ -159,4 +186,4 @@ $(GENERATED)/stamp: $(SAFETENSORS_PREREQ) $(GENERATED)/generator
 
 $(GENERATED)/weights.c $(GENERATED)/weights_table.c $(GENERATED)/weights.tdump: $(GENERATED)/stamp ;
 
--include $(OBJECTS:.o=.d) $(PROGRAM_OBJECTS:.o=.d) $(DUMP_OBJECTS:.o=.d) $(NEWLIB_OBJECTS:.o=.d) $(PLATFORM_OBJECTS:.o=.d) $(GENERATED_OBJECTS:.o=.d)
+-include $(OBJECTS:.o=.d) $(PROGRAM_OBJECTS:.o=.d) $(DUMP_OBJECTS:.o=.d) $(PROFILE_OBJECTS:.o=.d) $(STACK_OBJECTS:.o=.d) $(NEWLIB_OBJECTS:.o=.d) $(PLATFORM_OBJECTS:.o=.d) $(GENERATED_OBJECTS:.o=.d)

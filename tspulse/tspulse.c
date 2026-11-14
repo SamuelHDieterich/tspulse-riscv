@@ -11,6 +11,8 @@
  * The RISC-V build adds `--counts PATH`, which receives a CSV with the instructions each window's model run took.
  *
  * The dump build adds `--dump-window W --dump PATH`, which writes window W's inner outputs to a `.tdump` file.
+ *
+ * The profile build adds `--profile PATH`, which receives a CSV with the instructions each module took in each window.
  */
 
 // ░█░░░▀█▀░█▀▄░█▀▄░█▀█░█▀▄░▀█▀░█▀▀░█▀▀
@@ -27,6 +29,7 @@
 
 // Internal
 #include "io/instret.h"
+#include "io/profile.h"
 #include "io/rows.h"
 #include "io/tdump.h"
 #include "kernels/fft.h"
@@ -54,6 +57,9 @@ struct options {
     const char *dump_path;   ///< The `.tdump` file to write.
     int has_dump_window;     ///< Whether `--dump-window` was given.
 #endif
+#ifdef TSPULSE_PROFILE
+    const char *profile_path; ///< The CSV of per-module instruction counts to write, NULL when not asked for.
+#endif
     // clang-format on
 };
 
@@ -67,6 +73,12 @@ struct options {
 #define OPTION_DUMP_WINDOW "--dump-window"
 /// The option that names the `.tdump` file.
 #define OPTION_DUMP "--dump"
+#ifdef TSPULSE_PROFILE
+/// The option that names the per-module instruction counts CSV.
+#define OPTION_PROFILE "--profile"
+/// The first line of the profile CSV.
+#define PROFILE_HEADER "window,path,depth,instructions,calls\n"
+#endif
 #ifdef __riscv
 /// The option that names the instruction counts CSV.
 #define OPTION_COUNTS "--counts"
@@ -94,8 +106,14 @@ struct options {
 #else
 #define USAGE_DUMP ""
 #endif
+#ifdef TSPULSE_PROFILE
+#define USAGE_PROFILE " [--profile PATH]"
+#else
+#define USAGE_PROFILE ""
+#endif
 #define USAGE                                                                  \
-    "usage: %s ROWS ERRORS [--windows START:STOP]" USAGE_COUNTS USAGE_DUMP "\n"
+    "usage: %s ROWS ERRORS [--windows START:STOP]" USAGE_COUNTS                \
+        USAGE_DUMP USAGE_PROFILE "\n"
 
 // ░█▀▀░█░█░█▀█░█▀▀░▀█▀░▀█▀░█▀█░█▀█░█▀▀
 // ░█▀▀░█░█░█░█░█░░░░█░░░█░░█░█░█░█░▀▀█
@@ -183,6 +201,10 @@ static int parse_args(int argc, char **argv, struct options *options) {
         } else if (strcmp(argv[i], OPTION_DUMP) == 0) {
             options->dump_path = value;
 #endif
+#ifdef TSPULSE_PROFILE
+        } else if (strcmp(argv[i], OPTION_PROFILE) == 0) {
+            options->profile_path = value;
+#endif
         } else {
             return 1;
         }
@@ -203,6 +225,7 @@ static int parse_args(int argc, char **argv, struct options *options) {
  * @param reader An open `.rows` file.
  * @param errors The CSV, with its header already written.
  * @param counts The instruction counts CSV with its header already written, NULL when none was asked for. The host build passes NULL.
+ * @param profile The profile CSV with its header already written, NULL when none was asked for. Only the profile build uses it.
  * @param dump The dump to write into, NULL when none was asked for. The clean build passes NULL.
  * @param dumped Receives whether the dump window was run.
  * @return 0 on success, nonzero on a read or write failure.
@@ -212,6 +235,7 @@ static int run_series(
     struct rows_reader *reader,
     FILE *errors,
     FILE *counts,
+    FILE *profile,
     struct tdump *dump,
     int *dumped
 ) {
@@ -282,7 +306,19 @@ static int run_series(
         }
 #endif
 
-        // Step 5: the errors; %.9g promotes the floats to double, which the model itself never does
+        // Step 5: the module counts, when asked for. The window's count is the same one `--counts` writes, and profile_write takes the hooks' cost out of it
+#ifdef TSPULSE_PROFILE
+        if (profile != NULL && profile_write(profile, window, after - before)) {
+            fprintf(
+                stderr, "cannot write the profile, or a hook overflowed or was "
+                        "unpaired\n"
+            );
+            failed = 1;
+            break;
+        }
+#endif
+
+        // Step 6: the errors; %.9g promotes the floats to double, which the model itself never does
         if (fprintf(
                 errors, ERRORS_LINE, window, (double)result.time,
                 (double)result.fft, (double)result.forecast
@@ -302,6 +338,10 @@ static int run_series(
 #ifndef __riscv
     // The host build has no counter
     (void)counts;
+#endif
+#ifndef TSPULSE_PROFILE
+    // Only the profile build has hooks that count
+    (void)profile;
 #endif
     return failed;
 }
@@ -368,6 +408,24 @@ int main(int argc, char **argv) {
         }
     }
 #endif
+    FILE *profile = NULL;
+#ifdef TSPULSE_PROFILE
+    if (options.profile_path != NULL) {
+        profile = fopen(options.profile_path, "w");
+        if (profile == NULL || fputs(PROFILE_HEADER, profile) == EOF) {
+            fprintf(stderr, "cannot write %s\n", options.profile_path);
+            if (profile != NULL) {
+                fclose(profile);
+            }
+            if (counts != NULL) {
+                fclose(counts);
+            }
+            fclose(errors);
+            rows_close(&reader);
+            return 1;
+        }
+    }
+#endif
     struct tdump *dump_target = NULL;
 #ifdef TSPULSE_DUMP
     struct tdump dump;
@@ -388,8 +446,9 @@ int main(int argc, char **argv) {
     // Step 4: the series. Every window reads the FFT's cosine table, so it is filled first
     fft_setup();
     int dumped = 0;
-    int failed =
-        run_series(&options, &reader, errors, counts, dump_target, &dumped);
+    int failed = run_series(
+        &options, &reader, errors, counts, profile, dump_target, &dumped
+    );
 
     // Step 5: close everything, and check that the dump window was reached
     if (fclose(errors) != 0) {
@@ -399,6 +458,12 @@ int main(int argc, char **argv) {
 #ifdef __riscv
     if (counts != NULL && fclose(counts) != 0) {
         fprintf(stderr, "cannot finish %s\n", options.counts_path);
+        failed = 1;
+    }
+#endif
+#ifdef TSPULSE_PROFILE
+    if (profile != NULL && fclose(profile) != 0) {
+        fprintf(stderr, "cannot finish %s\n", options.profile_path);
         failed = 1;
     }
 #endif
