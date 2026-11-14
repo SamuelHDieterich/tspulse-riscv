@@ -1,6 +1,6 @@
-"""The units a `time-host` call runs: which series, which runner, which setup, and in what order.
+"""The units a `time-host` call runs: which series, which build, which setup, and in what order.
 
-A unit is one measurement: one repeat of one series, timed with one runner in one setup.
+A unit is one measurement: one repeat of one series, timed with one build in one setup.
 """
 
 # ░█░░░▀█▀░█▀▄░█▀▄░█▀█░█▀▄░▀█▀░█▀▀░█▀▀
@@ -24,12 +24,8 @@ from score.layout import DATASETS_FOLDER
 SeriesName = Literal["yahoo560", "tao120"]
 SERIES_NAMES: tuple[SeriesName, ...] = get_args(SeriesName)
 
-# Who runs the model: the clean C build, the fast C build, or IBM's PyTorch pipeline
-Runner = Literal["c-clean", "c-fast", "torch"]
-RUNNERS: tuple[Runner, ...] = get_args(Runner)
-C_CLEAN: Runner = "c-clean"
-C_FAST: Runner = "c-fast"
-TORCH: Runner = "torch"
+# What runs the model is a build's name for a C unit, or this for IBM's PyTorch pipeline, so no C build can take the name
+TORCH = "torch"
 
 # How the C runs: one process pinned to one core, or P processes over split window ranges, unpinned
 CSetup = Literal["one-core", "whole-pc"]
@@ -77,7 +73,7 @@ WHOLE_PC_TORCH_SETUPS: frozenset[TorchSetup] = frozenset({B128_WHOLE_PC})
 
 @dataclass(frozen=True)
 class Unit:
-    """One measurement: one repeat of one series, with one runner in one setup.
+    """One measurement: one repeat of one series, with one build in one setup.
 
     Attributes
     ----------
@@ -85,15 +81,15 @@ class Unit:
         Which repeat, from 1.
     series : SeriesName
         The series.
-    runner : Runner
-        Who runs the model.
+    build : str
+        The C build's name, or `torch`.
     setup : Setup
         How it runs.
     """
 
     repeat: int
     series: SeriesName
-    runner: Runner
+    build: str
     setup: Setup
 
     @property
@@ -103,10 +99,10 @@ class Unit:
         Returns
         -------
         str
-            Such as `r1-yahoo560-c-clean-one-core`.
+            Such as `r1-yahoo560-linear-blocked+unroll-on-one-core`.
         """
 
-        return f"r{self.repeat}-{self.series}-{self.runner}-{self.setup}"
+        return f"r{self.repeat}-{self.series}-{self.build}-{self.setup}"
 
     @property
     def file_name(self) -> str:
@@ -115,22 +111,22 @@ class Unit:
         Returns
         -------
         str
-            Such as `r1-yahoo560-c-clean-one-core.json`.
+            Such as `r1-yahoo560-baseline-one-core.json`.
         """
 
         return self.name + RESULT_SUFFIX
 
     @property
-    def measurement(self) -> tuple[SeriesName, Runner, Setup]:
+    def measurement(self) -> tuple[SeriesName, str, Setup]:
         """What the unit measures, the same for every repeat.
 
         Returns
         -------
-        tuple[SeriesName, Runner, Setup]
-            The series, runner and setup.
+        tuple[SeriesName, str, Setup]
+            The series, build and setup.
         """
 
-        return self.series, self.runner, self.setup
+        return self.series, self.build, self.setup
 
 
 # ░█▄█░█▀▀░▀█▀░█░█░█▀█░█▀▄░█▀▀
@@ -138,29 +134,28 @@ class Unit:
 # ░▀░▀░▀▀▀░░▀░░▀░▀░▀▀▀░▀▀░░▀▀▀
 
 
-def all_units(repeats: int, fast: bool) -> list[Unit]:
+def all_units(repeats: int, builds: list[str]) -> list[Unit]:
     """List every unit of a call, in the order they run.
 
-    Repeats come first, so every setup sees the same share of a warming or throttling machine.
+    Repeats come first, so every build and setup sees the same share of a warming or throttling machine.
 
     Parameters
     ----------
     repeats : int
         How many times each measurement runs.
-    fast : bool
-        Whether the fast C build is timed too.
+    builds : list[str]
+        The C builds' names, in the order they run.
 
     Returns
     -------
     list[Unit]
-        Ordered by repeat, then series, then runner, then setup.
+        Ordered by repeat, then series, then each C build in the order given, then PyTorch, then setup.
     """
 
-    runners = [runner for runner in RUNNERS if fast or runner != C_FAST]
     return [
-        Unit(repeat, series, runner, setup)
+        Unit(repeat, series, build, setup)
         for repeat in range(1, repeats + 1)
         for series in SERIES_NAMES
-        for runner in runners
-        for setup in (TORCH_SETUPS if runner == TORCH else C_SETUPS)
+        for build in (*builds, TORCH)
+        for setup in (TORCH_SETUPS if build == TORCH else C_SETUPS)
     ]

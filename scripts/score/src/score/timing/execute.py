@@ -1,4 +1,4 @@
-"""Running one `time-host` unit with its runner, and turning what it measured into the result every unit saves."""
+"""Running one `time-host` unit with its build or PyTorch, and turning what it measured into the result every unit saves."""
 
 # ░█░░░▀█▀░█▀▄░█▀▄░█▀█░█▀▄░▀█▀░█▀▀░█▀▀
 # ░█░░░░█░░█▀▄░█▀▄░█▀█░█▀▄░░█░░█▀▀░▀▀█
@@ -22,7 +22,6 @@ from score.timing.units import (
     TORCH,
     TORCH_BATCH_SIZE,
     WHOLE_PC_TORCH_SETUPS,
-    Runner,
     TorchSetup,
     Unit,
 )
@@ -45,8 +44,8 @@ class Settings:
         The folder for the row files and the C program's output.
     machine : str
         The label of the computer, which names the C units' work folder.
-    binaries : dict[Runner, Path]
-        Each C runner's `tspulse`.
+    binaries : dict[str, Path]
+        Each C build's `tspulse`, by the build's name.
     launcher : Path
         GNU time, which starts every C process and measures its peak memory.
     pin_cpu : int
@@ -55,19 +54,19 @@ class Settings:
         P, the processes or threads of the whole-PC setups.
     prepared : dict[str, PreparedSeries]
         Each series' row file, by short name, for the series that have C units to run.
-    provenance : dict[Runner, Provenance]
-        Each runner's provenance.
+    provenance : dict[str, Provenance]
+        Each build's provenance, `torch` included.
     """
 
     data: Path
     work: Path
     machine: str
-    binaries: dict[Runner, Path]
+    binaries: dict[str, Path]
     launcher: Path
     pin_cpu: int
     parallel: int
     prepared: dict[str, PreparedSeries]
-    provenance: dict[Runner, Provenance]
+    provenance: dict[str, Provenance]
 
 
 # ░█▄█░█▀▀░▀█▀░█░█░█▀█░█▀▄░█▀▀
@@ -104,7 +103,7 @@ def _torch_job(unit: Unit, settings: Settings) -> TorchJob:
 
 
 def _measure(unit: Unit, settings: Settings) -> tuple[int, Measurement] | str:
-    """Run a unit with its runner.
+    """Run a unit with its build or with PyTorch.
 
     Parameters
     ----------
@@ -120,9 +119,9 @@ def _measure(unit: Unit, settings: Settings) -> tuple[int, Measurement] | str:
     """
 
     # Step 1: a C unit, one pinned process or P free ones
-    if unit.runner != TORCH:
+    if unit.build != TORCH:
         prepared = settings.prepared[unit.series]
-        binary = settings.binaries[unit.runner]
+        binary = settings.binaries[unit.build]
         folder = settings.work / settings.machine / unit.name
         if unit.setup == ONE_CORE:
             measured = run_one_core(
@@ -181,7 +180,7 @@ def run_unit(unit: Unit, settings: Settings) -> UnitResult | str:
         unit=unit.name,
         repeat=unit.repeat,
         series=unit.series,
-        runner=unit.runner,
+        build=unit.build,
         setup=unit.setup,
         channels=channels,
         windows=measurement.windows,
@@ -192,5 +191,5 @@ def run_unit(unit: Unit, settings: Settings) -> UnitResult | str:
         load_average=load_average,
         unit_seconds=unit_seconds,
         details=measurement.details,
-        provenance=settings.provenance[unit.runner],
+        provenance=settings.provenance[unit.build],
     )

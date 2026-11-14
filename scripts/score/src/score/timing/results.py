@@ -1,6 +1,6 @@
 """What a `time-host` unit saves, when a saved unit counts as done, and the two tables built from them.
 
-Each unit's JSON sits in the machine's folder and marks the unit done; `runs.csv` has one row per unit and `summary.csv` the median over repeats.
+Each unit's JSON sits in the label's machine folder and marks the unit done; `runs.csv` has one row per unit and `summary.csv` the median over repeats.
 In `runs.csv`, a one-core C row's `cpu_seconds` covers the whole run on every window, start-up included, while its `timed_seconds` is the difference T_N − T_1 of the two runs.
 """
 
@@ -32,7 +32,18 @@ RUNS_FILE = "runs.csv"
 SUMMARY_FILE = "summary.csv"
 
 # The provenance fields that decide whether a saved unit still counts. The commit, tree and dirty flag are recorded but not compared, so uncommitted work doesn't rerun every unit
-SKIP_FIELDS = ("pin_cpu", "parallel", "sha256", "torch", "granite_tsfm")
+SKIP_FIELDS = ("build", "pin_cpu", "parallel", "sha256", "torch", "granite_tsfm")
+
+# What each table says of the build's code, read from the build record in a unit's provenance and left empty for PyTorch.
+# The commit is the one the binary was built from, which can differ from the worktree's, and the tree still names that code after a history rewrite
+BUILD_COLUMNS = ("build_commit", "build_tree", "build_dirty")
+
+# Each build column's field in the build record
+BUILD_RECORD_FIELDS = {
+    "build_commit": "commit",
+    "build_tree": "tree",
+    "build_dirty": "dirty",
+}
 
 # The result fields copied into `runs.csv`, in column order, followed by the 1-minute load average.
 # On one C core, `cpu_seconds` is the whole `0:N` run, start-up included, while `timed_seconds` is the difference T_N − T_1, so CPU reads above wall time there
@@ -40,7 +51,7 @@ RUNS_COLUMNS = (
     "unit",
     "repeat",
     "series",
-    "runner",
+    "build",
     "setup",
     "channels",
     "windows",
@@ -55,7 +66,8 @@ LOAD_COLUMN = "load_average_1min"
 # `summary.csv`'s columns. A ratio is this row's seconds per channel-window over the PyTorch setup's, so above 1 is slower
 SUMMARY_COLUMNS = (
     "series",
-    "runner",
+    "build",
+    *BUILD_COLUMNS,
     "setup",
     "repeats",
     "channels",
@@ -82,12 +94,12 @@ RATIO_REFERENCES = {
 
 @dataclass(frozen=True)
 class Measurement:
-    """What a unit measured, in the shape every runner's result shares.
+    """What a unit measured, in the shape every C and PyTorch unit's result shares.
 
     Attributes
     ----------
     windows : int
-        Windows run, as the runner counted them.
+        Windows run, as the build's program or PyTorch counted them.
     seconds_per_window : float
         Wall seconds per window.
     timed_seconds : float
@@ -97,7 +109,7 @@ class Measurement:
     max_rss_kib : int
         The largest peak resident memory of any one process, in KiB: each C process's from GNU time's `%M`, the PyTorch process's from its `VmHWM`.
     details : dict[str, Any]
-        The runner's raw numbers and commands.
+        The raw numbers and commands.
     """
 
     windows: int
@@ -128,6 +140,10 @@ class Provenance:
         P, the processes or threads of the whole-PC setups.
     command : str
         The `time-host` command line, shell-quoted.
+    build : str or None
+        The C build's name, None for a PyTorch unit.
+    build_record : dict[str, Any] or None
+        The build's whole `build.json`, None for a PyTorch unit.
     sha256 : str or None
         The C binary's SHA-256, None for a PyTorch unit.
     torch : str or None
@@ -143,6 +159,8 @@ class Provenance:
     pin_cpu: int
     parallel: int
     command: str
+    build: str | None
+    build_record: dict[str, Any] | None
     sha256: str | None
     torch: str | None
     granite_tsfm: str | None
@@ -150,7 +168,7 @@ class Provenance:
 
 @dataclass(frozen=True)
 class UnitResult:
-    """A finished unit, in the shape every runner shares.
+    """A finished unit, in the shape every C and PyTorch unit shares.
 
     Attributes
     ----------
@@ -160,14 +178,14 @@ class UnitResult:
         Which repeat, from 1.
     series : str
         The series' short name.
-    runner : str
-        Who ran the model.
+    build : str
+        The C build's name, or `torch`.
     setup : str
         How it ran.
     channels : int
         How many channels the series has.
     windows : int
-        Windows run, as the runner counted them.
+        Windows run, as the build's program or PyTorch counted them.
     seconds_per_window : float
         Wall seconds per window: on one C core with start-up taken out, on the whole PC the group's wall time over the windows, for PyTorch the time inside `_forward` over the windows.
     timed_seconds : float
@@ -181,7 +199,7 @@ class UnitResult:
     unit_seconds : float
         The unit's whole wall time, which the ETA uses.
     details : dict[str, Any]
-        The runner's raw numbers and commands.
+        The raw numbers and commands.
     provenance : Provenance
         Where, from what and how it ran.
     """
@@ -189,7 +207,7 @@ class UnitResult:
     unit: str
     repeat: int
     series: str
-    runner: str
+    build: str
     setup: str
     channels: int
     windows: int
@@ -231,7 +249,7 @@ def write_result(folder: Path, unit: Unit, result: UnitResult) -> None:
     Parameters
     ----------
     folder : Path
-        The machine's folder.
+        The label's machine folder.
     unit : Unit
         The unit, which names the file.
     result : UnitResult
@@ -250,7 +268,7 @@ def stored_result(
     Parameters
     ----------
     folder : Path
-        The machine's folder.
+        The label's machine folder.
     unit : Unit
         The unit.
     provenance : Provenance
@@ -305,8 +323,29 @@ def _write_csv(
     _replace(path, text.getvalue())
 
 
+def _build_columns(result: dict[str, Any]) -> dict[str, Any]:
+    """Take the build columns of a saved unit result.
+
+    Parameters
+    ----------
+    result : dict[str, Any]
+        A saved unit result, which may predate the build record.
+
+    Returns
+    -------
+    dict[str, Any]
+        The build's commit, tree and dirty flag, each empty when the result has no build record.
+    """
+
+    record = result.get("provenance", {}).get("build_record") or {}
+    return {
+        column: "" if record.get(field) is None else record[field]
+        for column, field in BUILD_RECORD_FIELDS.items()
+    }
+
+
 def _summary_rows(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Take the median over repeats of each series, runner and setup, and derive the rates and ratios from it.
+    """Take the median over repeats of each series, build and setup, and derive the rates and ratios from it.
 
     Parameters
     ----------
@@ -316,18 +355,18 @@ def _summary_rows(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     Returns
     -------
     list[dict[str, Any]]
-        One row per series, runner and setup, in the order they first appear.
+        One row per series, build and setup, in the order they first appear.
     """
 
     # Step 1: the repeats of each measurement, in run order
     groups: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     for result in results:
-        key = (result["series"], result["runner"], result["setup"])
+        key = (result["series"], result["build"], result["setup"])
         groups.setdefault(key, []).append(result)
 
     # Step 2: the median seconds per window, and the rates from it
     rows = []
-    for (series, runner, setup), repeats in groups.items():
+    for (series, build, setup), repeats in groups.items():
         # Median of the repeats: https://docs.python.org/3/library/statistics.html#statistics.median
         seconds = statistics.median(one["seconds_per_window"] for one in repeats)
         channels = repeats[0]["channels"]
@@ -337,7 +376,8 @@ def _summary_rows(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rows.append(
             {
                 "series": series,
-                "runner": runner,
+                "build": build,
+                **_build_columns(repeats[0]),
                 "setup": setup,
                 "repeats": len(repeats),
                 "channels": channels,
@@ -353,7 +393,7 @@ def _summary_rows(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     reference = {
         (row["series"], row["setup"]): row["seconds_per_channel_window"]
         for row in rows
-        if row["runner"] == TORCH
+        if row["build"] == TORCH
     }
     for row in rows:
         for column, setup in RATIO_REFERENCES.items():
@@ -365,12 +405,12 @@ def _summary_rows(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def write_tables(folder: Path, results: list[dict[str, Any]]) -> Path:
-    """Rewrite the machine's `runs.csv` and `summary.csv` from its saved results.
+    """Rewrite the label's machine `runs.csv` and `summary.csv` from its saved results.
 
     Parameters
     ----------
     folder : Path
-        The machine's folder.
+        The label's machine folder.
     results : list[dict[str, Any]]
         The saved unit results that still count, in run order.
 
@@ -382,11 +422,12 @@ def write_tables(folder: Path, results: list[dict[str, Any]]) -> Path:
 
     folder.mkdir(parents=True, exist_ok=True)
     runs = [
-        {column: result[column] for column in RUNS_COLUMNS}
+        {column: result.get(column) for column in RUNS_COLUMNS}
+        | _build_columns(result)
         | {LOAD_COLUMN: result["load_average"][0]}
         for result in results
     ]
-    _write_csv(folder / RUNS_FILE, (*RUNS_COLUMNS, LOAD_COLUMN), runs)
+    _write_csv(folder / RUNS_FILE, (*RUNS_COLUMNS, *BUILD_COLUMNS, LOAD_COLUMN), runs)
     summary = folder / SUMMARY_FILE
     _write_csv(summary, SUMMARY_COLUMNS, _summary_rows(results))
     return summary
