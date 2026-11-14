@@ -1,0 +1,13 @@
+kind,item,bytes,formula,source
+weights,weights,4045272,,size of the weights symbol in .rodata
+code,.text,59070,,section size
+code,functions the windows ran,26138,,symbol sizes of the 61 functions the histograms saw
+static,.bss,217416,,section size
+static,.sbss,128,,section size
+static,.data,2856,,section size
+static,.sdata,728,,section size
+static,.rodata,2984,,section size minus the weights
+stack,worst path from window_run,800,,frames of window_run 208 > pass 96 > backbone 64 > tspulse_block 48 > mixer_layer_138 32 > feature_mixer 80 > gelu 64 > erff 80 > expf 32 > __math_may_uflowf 16 > xflowf 16 > with_errnof 48 > __errno 16
+heap,the history's ring of raw values per channel,4104,channels * 513 * 8,model/history.c:29
+heap,the reader's mean and std,16,2 * channels * 8,io/rows.c:98
+heap,one row as read,8,channels * 8,tspulse.c:248

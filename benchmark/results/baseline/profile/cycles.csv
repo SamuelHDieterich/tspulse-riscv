@@ -1,0 +1,41 @@
+window,class,quantity,low,high,unit,note
+1,all classes,cycles,2438539506,4509817042,cycles,
+1,Microcontroller,clock,100,400,MHz,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
+1,Microcontroller,seconds per window,6.096349,45.098170,s,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
+1,Microcontroller,readings per second,0.022174,0.164033,readings/s,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
+1,Large microcontroller,clock,400,400,MHz,
+1,Large microcontroller,seconds per window,6.096349,11.274543,s,
+1,Large microcontroller,readings per second,0.088695,0.164033,readings/s,
+1,Small Linux board,clock,1000,1000,MHz,
+1,Small Linux board,seconds per window,2.438540,4.509817,s,
+1,Small Linux board,readings per second,0.221738,0.410082,readings/s,
+429,all classes,cycles,2438317367,4509359445,cycles,
+429,Microcontroller,clock,100,400,MHz,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
+429,Microcontroller,seconds per window,6.095793,45.093594,s,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
+429,Microcontroller,readings per second,0.022176,0.164048,readings/s,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
+429,Large microcontroller,clock,400,400,MHz,
+429,Large microcontroller,seconds per window,6.095793,11.273399,s,
+429,Large microcontroller,readings per second,0.088704,0.164048,readings/s,
+429,Small Linux board,clock,1000,1000,MHz,
+429,Small Linux board,seconds per window,2.438317,4.509359,s,
+429,Small Linux board,readings per second,0.221761,0.410119,readings/s,
+908,all classes,cycles,2438307327,4509338127,cycles,
+908,Microcontroller,clock,100,400,MHz,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
+908,Microcontroller,seconds per window,6.095768,45.093381,s,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
+908,Microcontroller,readings per second,0.022176,0.164048,readings/s,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
+908,Large microcontroller,clock,400,400,MHz,
+908,Large microcontroller,seconds per window,6.095768,11.273345,s,
+908,Large microcontroller,readings per second,0.088705,0.164048,readings/s,
+908,Small Linux board,clock,1000,1000,MHz,
+908,Small Linux board,seconds per window,2.438307,4.509338,s,
+908,Small Linux board,readings per second,0.221762,0.410121,readings/s,
+mean,all classes,cycles,2438388067,4509504871,cycles,
+mean,Microcontroller,clock,100,400,MHz,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
+mean,Microcontroller,seconds per window,6.095970,45.095049,s,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
+mean,Microcontroller,readings per second,0.022175,0.164043,readings/s,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
+mean,Large microcontroller,clock,400,400,MHz,
+mean,Large microcontroller,seconds per window,6.095970,11.273762,s,
+mean,Large microcontroller,readings per second,0.088702,0.164043,readings/s,
+mean,Small Linux board,clock,1000,1000,MHz,
+mean,Small Linux board,seconds per window,2.438388,4.509505,s,
+mean,Small Linux board,readings per second,0.221754,0.410107,readings/s,
