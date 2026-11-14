@@ -92,6 +92,18 @@
           exec uv run --locked --project "$(git rev-parse --show-toplevel)/scripts/score" benchmark "$@"
         '';
       };
+
+      time-host = pkgs.writeShellApplication {
+        name = "time-host";
+        runtimeInputs = with pkgs; [
+          git # finds the worktree root, and records its commit with each result
+          uv # runs the command from its venv
+          time # GNU time, which measures each C process's peak memory
+        ];
+        text = /* bash */ ''
+          exec uv run --locked --project "$(git rev-parse --show-toplevel)/scripts/score" time-host "$@"
+        '';
+      };
     in
     {
       devShells.python = pkgs.mkShell {
@@ -106,6 +118,7 @@
           check-model # runs the C program's dump build on the reference windows and compares it
           check-spike # runs windows on the host and under Spike and checks they write the same bytes
           benchmark # runs a labelled build's accuracy windows and counts its instructions under Spike
+          time-host # times the C builds against the PyTorch pipeline on this computer
         ];
 
         # inputsFrom forwards shellHook but not env, so these are exported here.

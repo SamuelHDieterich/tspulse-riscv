@@ -26,3 +26,6 @@ SPIKE_CHECK_FOLDER = Path("results") / "spike-check"
 
 # The benchmark's runs, one folder per label holding every machine's units
 BENCHMARK_FOLDER = Path("results") / "benchmark"
+
+# The host timing's runs, one folder and one log per machine
+HOST_TIMING_FOLDER = Path("results") / "host-timing"
