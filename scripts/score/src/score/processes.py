@@ -35,7 +35,11 @@ class Processes:
         self._stopping = False
 
     def run(
-        self, command: list[str], stderr_path: Path, stdout_path: Path | None = None
+        self,
+        command: list[str],
+        stderr_path: Path,
+        stdout_path: Path | None = None,
+        cwd: Path | None = None,
     ) -> tuple[int, float] | None:
         """Run one program to the end, with its stderr in a file.
 
@@ -47,6 +51,8 @@ class Processes:
             Where its stderr goes.
         stdout_path : Path or None
             Where its stdout goes, or None to discard it.
+        cwd : Path or None
+            The folder it runs in, or None for the caller's.
 
         Returns
         -------
@@ -76,6 +82,7 @@ class Processes:
                 stdin=subprocess.DEVNULL,
                 stdout=stdout,
                 stderr=stderr,
+                cwd=cwd,
             )
             self._running.add(process)
 

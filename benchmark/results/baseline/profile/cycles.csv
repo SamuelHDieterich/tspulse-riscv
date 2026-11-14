@@ -1,5 +1,5 @@
 window,class,quantity,low,high,unit,note
-1,all classes,cycles,2438539506,4509817042,cycles,
+1,all classes,cycles,2438539503,4509817036,cycles,
 1,Microcontroller,clock,100,400,MHz,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
 1,Microcontroller,seconds per window,6.096349,45.098170,s,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
 1,Microcontroller,readings per second,0.022174,0.164033,readings/s,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
@@ -29,7 +29,7 @@ window,class,quantity,low,high,unit,note
 908,Small Linux board,clock,1000,1000,MHz,
 908,Small Linux board,seconds per window,2.438307,4.509338,s,
 908,Small Linux board,readings per second,0.221762,0.410121,readings/s,
-mean,all classes,cycles,2438388067,4509504871,cycles,
+mean,all classes,cycles,2438388066,4509504869,cycles,
 mean,Microcontroller,clock,100,400,MHz,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
 mean,Microcontroller,seconds per window,6.095970,45.095049,s,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."
 mean,Microcontroller,readings per second,0.022175,0.164043,readings/s,"Times come from rv64 instruction counts, a rough proxy for an rv32 chip."

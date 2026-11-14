@@ -36,7 +36,7 @@ window,mnemonic,instructions
 1,bltu,3155925
 1,sd,2880408
 1,fsgnj.s,2234711
-1,c.ld,1879981
+1,c.ld,1879978
 1,fsub.d,1864245
 1,fcvt.s.d,1864214
 1,srliw,1863998
@@ -379,7 +379,7 @@ mean,beq,3504202
 mean,bltu,3151598
 mean,sd,2876302
 mean,fsgnj.s,2231345
-mean,c.ld,1878374
+mean,c.ld,1878373
 mean,fsub.d,1862643
 mean,fcvt.s.d,1862612
 mean,srliw,1862338

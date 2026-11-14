@@ -59,8 +59,7 @@ window,function,instructions
 1,_localeconv_r,20
 1,fread,14
 1,history_full,11
-1,strcmp,3
-1,pk,-757
+1,pk,0
 429,linear,2132744173
 429,erff,112074588
 429,expf,87504332
@@ -121,7 +120,7 @@ window,function,instructions
 429,_localeconv_r,20
 429,fread,14
 429,history_full,11
-429,pk,-15
+429,pk,1
 908,linear,2132744173
 908,erff,112068213
 908,expf,87505760
@@ -177,7 +176,7 @@ window,function,instructions
 908,_localeconv_r,20
 908,__retarget_lock_acquire_recursive,16
 908,__retarget_lock_release_recursive,16
-908,pk,-15
+908,pk,1
 mean,linear,2132744173
 mean,erff,112097450
 mean,expf,87543741
@@ -238,5 +237,4 @@ mean,_localeconv_r,20
 mean,rows_next,17
 mean,fread,9
 mean,history_full,7
-mean,strcmp,1
-mean,pk,-262
+mean,pk,1

@@ -55,8 +55,6 @@ PROFILE_OPTION = "--profile"
 # Spike's options for the runs of the clean build; the profile build, which counts in the program, runs without them
 CLEAN_SPIKE_OPTIONS = [HISTOGRAM_OPTION, INSTRUCTION_CACHE, DATA_CACHE]
 
-# The prefix of the ISA argument, which ends Spike's own options in a command line
-ISA_ARGUMENT_PREFIX = "--isa="
 
 # Wall seconds assumed per run of one channel before any has finished, from a timed 428:430 sample
 ASSUMED_SHORT_SECONDS = 90.0
@@ -141,6 +139,13 @@ class ProfileUnit:
         """How many windows the run covers."""
 
         return self.stop - self.start
+
+    @property
+    def range_text(self) -> str:
+        """The `--windows` value, zero-padded to the width of the long run's stop, so it is the same length in all three runs."""
+
+        width = len(str(self.window + 1))
+        return f"{self.start:0{width}d}:{self.stop:0{width}d}"
 
 
 @dataclass(frozen=True)
@@ -231,16 +236,18 @@ def _command(unit: ProfileUnit, settings: ProfileSettings) -> list[str]:
     Returns
     -------
     list[str]
-        Spike, then the program with its row file, errors file and window range.
+        Spike, then the program with its row file, errors file and window range, to run from the unit's folder.
     """
 
-    folder = settings.folder(unit)
     binary = settings.profile if unit.kind == Kind.PROFILE else settings.clean
     extra = (
-        [PROFILE_OPTION, str(folder / PROFILE_FILE)]
+        [PROFILE_OPTION, PROFILE_FILE]
         if unit.kind == Kind.PROFILE
-        else [COUNTS_OPTION, str(folder / COUNTS_FILE)]
+        else [COUNTS_OPTION, COUNTS_FILE]
     )
+    # The window is the long run minus the short run, so start-up must cost the same in both.
+    # Every argument must therefore have the same length in both runs: a longer one moves the later strings on pk's stack, and newlib's word-at-a-time `strcmp` then takes a different number of instructions to match the options.
+    # That is why the output files go by bare name (the folders `w<M>-short` and `w<M>-long` differ in length) and the range is zero-padded.
     return [
         "spike",
         *unit.spike_options,
@@ -248,9 +255,9 @@ def _command(unit: ProfileUnit, settings: ProfileSettings) -> list[str]:
         str(settings.pk),
         str(binary),
         str(settings.rows),
-        str(folder / ERRORS_FILE),
+        ERRORS_FILE,
         WINDOWS_OPTION,
-        f"{unit.start}:{unit.stop}",
+        unit.range_text,
         *extra,
     ]
 
@@ -341,7 +348,7 @@ def _identity(settings: ProfileSettings) -> dict[str, object]:
 
 
 def is_done(unit: ProfileUnit, settings: ProfileSettings) -> bool:
-    """Say whether a unit already ran with these binaries and this row file.
+    """Say whether a unit already ran this exact command with these binaries and this row file.
 
     Parameters
     ----------
@@ -364,17 +371,8 @@ def is_done(unit: ProfileUnit, settings: ProfileSettings) -> bool:
     if not all(stored.get(key) == value for key, value in wanted.items()):
         return False
 
-    # The recorded command has Spike's options between `spike` and `--isa=`; they must be the ones this unit runs with now
-    try:
-        recorded = shlex.split(stored["command"])[1:]
-    except (KeyError, ValueError, TypeError):
-        return False
-    options = []
-    for token in recorded:
-        if token.startswith(ISA_ARGUMENT_PREFIX):
-            return options == unit.spike_options
-        options.append(token)
-    return False
+    # The whole command decides the measurement, its argument lengths included, so a unit run with any other command reruns
+    return stored.get("command") == shlex.join(_command(unit, settings))
 
 
 def run_unit(unit: ProfileUnit, settings: ProfileSettings) -> float | str | None:
@@ -407,14 +405,14 @@ def run_unit(unit: ProfileUnit, settings: ProfileSettings) -> float | str | None
     ):
         (folder / name).unlink(missing_ok=True)
 
-    # Step 2: the exact command is kept, since it is what a reader reruns
+    # Step 2: the exact command is kept, since it is what a reader reruns from this folder
     command = _command(unit, settings)
     (folder / COMMAND_FILE).write_text(shlex.join(command) + "\n")
 
     # Step 3: the run, with stdout (Spike's cache report) and stderr (the histogram) kept
     try:
         run = settings.processes.run(
-            command, folder / STDERR_FILE, folder / STDOUT_FILE
+            command, folder / STDERR_FILE, folder / STDOUT_FILE, cwd=folder
         )
     except OSError as error:
         return f"cannot run spike: {error}"

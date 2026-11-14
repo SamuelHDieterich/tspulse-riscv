@@ -102,7 +102,7 @@ benchmark profile --label NAME [--windows 1,429,908] [--jobs N] [--work DIR]
 ```
 
 Each window M takes three Spike runs, which are the slow part: the clean build over `M-1:M+1` and over `M-1:M` with the instruction histogram and the cache counters, and the profile build over `M-1:M+1`. The window's numbers are the difference of the first two.
-The runs go to `$TSPULSE_DATA/results/benchmark/<label>/profile/` (or `--work`), one folder per run with Spike's raw output, the exact command and its wall seconds. A run already done is skipped, so the same command resumes, and `--jobs` stays at 1 unless the computer has room for several Spikes.
+The runs go to `$TSPULSE_DATA/results/benchmark/<label>/profile/` (or `--work`), one folder per run with Spike's raw output, the exact command (run it from inside that folder) and its wall seconds. A run already done is skipped, so the same command resumes, and `--jobs` stays at 1 unless the computer has room for several Spikes.
 The default windows are 1, 429 and 908 of the `560_YAHOO_id_10_Synthetic_tr_500_1st_893` series (`--series` changes it). Window 0 can't be profiled, since it has no window before it to subtract, and a vector build is refused: only scalar rv64 builds have a weight table.
 
 The tables go to `benchmark/results/<label>/profile/`, and resuming writes the same bytes again. `kernels.csv`, `modules.csv`, `mix.csv`, `cycles.csv` and `traffic.csv` have rows for each window plus a `mean` row, `traffic.csv` adds a `floor_bytes` row with the window `all`, and `memory.csv` is one table for the build, with no window column. Fresh Spike runs can move the traffic counters slightly, because the cache model replaces lines at random:
