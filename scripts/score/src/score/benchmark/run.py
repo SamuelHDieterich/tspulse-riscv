@@ -15,7 +15,7 @@ import shutil
 import signal
 import socket
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
@@ -49,6 +49,13 @@ from score.benchmark.units import (
     instruction_units,
     order_and_shard,
     parse_shard,
+)
+from score.build_record import (
+    BuildRecord,
+    BuildRecordError,
+    check_binaries,
+    identity_part,
+    read_build,
 )
 from score.layout import BENCHMARK_FOLDER
 from score.series_check import _find_series, write_rows
@@ -86,6 +93,10 @@ RESERVED_NAMES = ("", ".", "..")
 # Exit codes: 1 is a failed or differing unit, 3 is a call refused before any stage ran, and 130 is the conventional code of a call stopped by Ctrl-C or SIGTERM
 EXIT_REFUSED = 3
 EXIT_INTERRUPTED = 130
+
+# The targets the two build records are kept under in a result and a label's identity
+HOST_TARGET = "host"
+RV64_TARGET = "rv64"
 
 # The accuracy scopes a call runs when none is named
 DEFAULT_SCOPES = [Scope.SCREEN, Scope.WHOLE_PYTHON]
@@ -203,6 +214,58 @@ def _write_rows(
         except (OSError, ValueError, KeyError) as error:
             typer.echo(f"Cannot read {csv_path}: {error}", err=True)
             raise typer.Exit(EXIT_REFUSED) from error
+
+
+def read_checked_build(folder: Path, binaries: tuple[str, ...]) -> BuildRecord:
+    """Read a build folder's record and check the binaries a tool uses against it.
+
+    Parameters
+    ----------
+    folder : Path
+        The build folder.
+    binaries : tuple[str, ...]
+        The binaries to check, by file name.
+
+    Returns
+    -------
+    BuildRecord
+        The folder's record.
+
+    Raises
+    ------
+    typer.Exit
+        With `EXIT_REFUSED` when the record is missing or malformed, or a binary doesn't match it.
+    """
+
+    try:
+        record = read_build(folder)
+        check_binaries(record, folder, binaries)
+    except BuildRecordError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(EXIT_REFUSED) from error
+    return record
+
+
+def _label_identity_build(host: BuildRecord, rv64: BuildRecord) -> dict[str, object]:
+    """Take what a label's identity keeps of the two builds.
+
+    Parameters
+    ----------
+    host : BuildRecord
+        The host build's record.
+    rv64 : BuildRecord
+        The rv64 build's record.
+
+    Returns
+    -------
+    dict[str, object]
+        The rv64 record's identity part, and only the compiler and flags of the host, which the rv64 record already fixes the rest of.
+    """
+
+    return {
+        HOST_TARGET: {"cflags": host.cflags, "cc_version": host.cc_version},
+        RV64_TARGET: identity_part(rv64),
+    }
 
 
 def _check_label(
@@ -352,11 +415,11 @@ def run(
         ),
     ],
     label: Annotated[
-        str,
+        str | None,
         typer.Option(
-            help="The name the results go under. Its first run fixes its binaries and settings."
+            help="The name the results go under. Its first run fixes its binaries and settings. Defaults to the build's name."
         ),
-    ],
+    ] = None,
     stage: Annotated[
         Stage,
         typer.Option(
@@ -455,8 +518,8 @@ def run(
         The host build folder.
     rv64_build : Path
         The rv64 build folder.
-    label : str
-        The benchmark label.
+    label : str or None
+        The benchmark label, or the build's name.
     stage : Stage
         Which stages to run.
     jobs : int
@@ -506,7 +569,8 @@ def run(
             "--redo deletes every machine's results, so it can't run as one shard.",
             param_hint="--redo",
         )
-    _folder_name(label, "--label")
+    if label is not None:
+        _folder_name(label, "--label")
     if machine is not None:
         _folder_name(machine, "--machine")
     stages = [Stage.INSTRUCTIONS, Stage.ACCURACY] if stage == Stage.ALL else [stage]
@@ -542,6 +606,21 @@ def run(
             raise typer.Exit(EXIT_REFUSED)
     sha256 = {role: _sha256(path) for role, path in binaries.items()}
 
+    # The builds' records, which the binaries must match and which both builds must agree on, so a result never carries options that didn't produce it
+    host_record = read_checked_build(host_build.resolve(), (CLEAN_BINARY,))
+    rv64_record = read_checked_build(rv64_build.resolve(), (CLEAN_BINARY,))
+    if (host_record.name, host_record.settings) != (
+        rv64_record.name,
+        rv64_record.settings,
+    ):
+        typer.echo(
+            f"The host build is {host_record.name} {host_record.settings} and the rv64 build is {rv64_record.name} {rv64_record.settings}: build both with the same settings.",
+            err=True,
+        )
+        raise typer.Exit(EXIT_REFUSED)
+    if label is None:
+        label = _folder_name(rv64_record.name, "--label")
+
     # Step 3: the series asked for, checked before the label's folder is made
     top = _top_level()
     working = read_series(top)
@@ -566,6 +645,11 @@ def run(
             _git(top, "status", "--porcelain", "--", ".", f":(exclude){TABLES_FOLDER}")
         ),
         sha256=sha256,
+        build=rv64_record.name,
+        build_records={
+            HOST_TARGET: asdict(host_record),
+            RV64_TARGET: asdict(rv64_record),
+        },
     )
     settings = Settings(
         label=label,
@@ -594,6 +678,7 @@ def run(
         accuracy_on=accuracy_on,
         host_check=host_check,
         spike_options=spike_options,
+        build=_label_identity_build(host_record, rv64_record),
     )
     _check_label(label_folder, identity, redo, log)
 

@@ -23,9 +23,11 @@ from score.benchmark.run import (
     ISA_SEPARATOR,
     PK_ROLE,
     _folder_name,
+    read_checked_build,
 )
 from score.benchmark.scope import read_series
 from score.benchmark.tables import TABLES_FOLDER
+from score.build_record import write_build
 from score.layout import BENCHMARK_FOLDER
 from score.profile.cycles import load_weights
 from score.profile.disassembly import read_mnemonics
@@ -71,10 +73,9 @@ ROWS_ROLE = "rows"
 CLEAN_ROLE = "clean"
 PROFILE_ROLE = "profile"
 
-# Where the clean build's pieces sit relative to its build folder: the generated weight table beside the build folders, the `.ci` files in `stack`, and the sources two folders up
-GENERATED_TABLE = Path("..") / "generated" / "weights_table.c"
+# The generated weight table's name in the record's generated folder, and where the `.ci` files sit in the build folder
+WEIGHTS_TABLE = "weights_table.c"
 STACK_FOLDER = "stack"
-SOURCE_FOLDER = Path("..") / ".."
 
 # The vector extension, as a letter of the base ISA, as an extension of its own, and as a prefix of the `zv*` subsets
 VECTOR_LETTER = "v"
@@ -258,9 +259,12 @@ def profile(
             typer.echo(f"Not found: {path}", err=True)
             raise typer.Exit(EXIT_REFUSED)
 
+    # The binaries must match the build's record before anything else is checked, so a stale one is refused for that reason. The record also says where the weight table and the sources are, which differs per build folder
+    record = read_checked_build(build_folder, (CLEAN_BINARY, PROFILE_BINARY))
+
     # The tables read the `.ci` files and the weight table after the runs, and an old build folder may lack them, which would waste the Spike time
     stack_folder = build_folder / STACK_FOLDER
-    weights_table = build_folder / GENERATED_TABLE
+    weights_table = Path(record.generated_dir) / WEIGHTS_TABLE
     if not any(stack_folder.rglob("*.ci")):
         typer.echo(
             f"No .ci file under {stack_folder}: run `make TARGET=rv64` in tspulse/.",
@@ -343,8 +347,9 @@ def profile(
             functions,
             weights_table,
             stack_folder,
-            build_folder / SOURCE_FOLDER,
+            Path(record.source_dir),
         )
+        write_build(record, tables)
     except (OSError, ProfileError) as error:
         log.line(f"cannot write the tables: {error}")
         raise typer.Exit(1) from error

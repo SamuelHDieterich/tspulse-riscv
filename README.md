@@ -67,9 +67,9 @@ The `.tdump` format and its record names are specified in `scripts/score/src/sco
 `benchmark` runs a build over the benchmark's windows and writes scored tables, inside the dev shell:
 
 ```bash
-benchmark run tspulse/build/host tspulse/build/rv64 --label NAME    # runs the units; the same command resumes
+benchmark run tspulse/build/host tspulse/build/rv64 [--label NAME]  # runs the units; the same command resumes
 benchmark collect --label NAME [--against OTHER]                    # scores what is done, writes the tables
-benchmark all tspulse/build/host tspulse/build/rv64 --label NAME    # run, then collect
+benchmark all tspulse/build/host tspulse/build/rv64 [--label NAME]  # run, then collect
 ```
 
 `run` has two stages:
@@ -77,6 +77,7 @@ benchmark all tspulse/build/host tspulse/build/rv64 --label NAME    # run, then 
 - **instructions** counts a few windows per series under Spike, and checks each against the host build byte for byte;
 - **accuracy** runs every window of the chosen `--scope`s on the host build: `screen` (each univariate working series' screen span) and `whole-python` (the 35 series the Python baseline ran whole), both by default.
 
+With `benchmark run` and `all`, `--label` defaults to the build's name, and each tool refuses a binary that doesn't match its folder's `build.json`.
 A label is one build and its settings. Running it again with other binaries or settings is refused: use another label, or `--redo` to start it over.
 
 - `--jobs N` and `--spike-jobs N` run that many units at once on the host and under Spike (default 1).
@@ -101,6 +102,7 @@ Each command exits 1 when a unit failed or differed or a series could not be sco
 benchmark profile --label NAME [--windows 1,429,908] [--jobs N] [--work DIR]
 ```
 
+`--label` is required, and the tool refuses a binary that doesn't match its build folder's `build.json`, which it copies beside the tables.
 Each window M takes three Spike runs, which are the slow part: the clean build over `M-1:M+1` and over `M-1:M` with the instruction histogram and the cache counters, and the profile build over `M-1:M+1`. The window's numbers are the difference of the first two.
 The runs go to `$TSPULSE_DATA/results/benchmark/<label>/profile/` (or `--work`), one folder per run with Spike's raw output, the exact command (run it from inside that folder) and its wall seconds. A run already done is skipped, so the same command resumes, and `--jobs` stays at 1 unless the computer has room for several Spikes.
 The default windows are 1, 429 and 908 of the `560_YAHOO_id_10_Synthetic_tr_500_1st_893` series (`--series` changes it). Window 0 can't be profiled, since it has no window before it to subtract, and a vector build is refused: only scalar rv64 builds have a weight table.

@@ -60,6 +60,7 @@ Identical = bool | NotChecked
 INSTRUCTION_COLUMNS = (
     "series",
     "kind",
+    "build",
     "channels",
     "window",
     "program_instructions",
@@ -136,6 +137,8 @@ class LabelIdentity:
         Whether instruction units are checked against the host.
     spike_options : list[str]
         The extra options Spike gets on the counted windows.
+    build : dict or None
+        What the build is: the rv64 record's identity part under `rv64`, and the host record's `cflags` and `cc_version` under `host`. None for a label made by binaries without a record.
     """
 
     sha256: dict[str, str]
@@ -148,6 +151,7 @@ class LabelIdentity:
     accuracy_on: str
     host_check: str
     spike_options: list[str]
+    build: dict[str, Any] | None
 
     def differences(self, stored: "LabelIdentity") -> list[str]:
         """Name the fields that differ from a stored identity.
@@ -194,6 +198,10 @@ class Provenance:
         Whether the worktree had uncommitted changes.
     sha256 : dict[str, str]
         The binaries' hashes, as in `label.json`.
+    build : str
+        The builds' name.
+    build_records : dict[str, dict]
+        The host's and the rv64 build's full records, by target.
     """
 
     machine: str
@@ -201,6 +209,8 @@ class Provenance:
     tree: str
     dirty: bool
     sha256: dict[str, str]
+    build: str
+    build_records: dict[str, dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -319,8 +329,11 @@ def read_identity(label_folder: Path) -> LabelIdentity | None:
     if not path.is_file():
         return None
     try:
-        return LabelIdentity(**json.loads(path.read_text()))
-    except (json.JSONDecodeError, TypeError) as error:
+        stored = json.loads(path.read_text())
+        # A label made before builds had a record has no `build`
+        stored.setdefault("build", None)
+        return LabelIdentity(**stored)
+    except (json.JSONDecodeError, TypeError, AttributeError) as error:
         raise ValueError(f"{path}: {error}") from error
 
 
@@ -513,7 +526,8 @@ def write_instruction_table(label_folder: Path, machine: str) -> tuple[Path, lis
             provenance = stored["provenance"]
             if provenance["machine"] != machine:
                 continue
-            merged = {**stored, **provenance}
+            # A result stored before builds had a record has no `build`
+            merged = {"build": "", **stored, **provenance}
             rows.append({column: merged[column] for column in INSTRUCTION_COLUMNS})
         except (OSError, ValueError, KeyError, TypeError) as error:
             problems.append(f"{path}: {type(error).__name__}: {error}")
