@@ -19,7 +19,7 @@ def mix_counts(difference: Histogram, mnemonics: dict[int, str]) -> dict[str, in
     """Count one window's instructions per mnemonic.
 
     pk's instructions are left out: the ELF holds the program only, so pk's addresses have no mnemonic here.
-    Compressed forms keep their own mnemonic (`c.addi` and `addi` are separate), so the table says exactly what ran, and the weight table maps each compressed form to its base instruction.
+    Compressed forms keep their own mnemonic (`c.addi` and `addi` are separate), so the table says exactly what ran, and the cycle count maps each compressed form to its base instruction.
 
     Parameters
     ----------

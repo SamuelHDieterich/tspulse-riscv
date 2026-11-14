@@ -1,0 +1,132 @@
+mnemonic,low,high,source
+add,1,1,Table 4.1 p.27
+addw,1,1,Table 4.1 p.27
+addi,1,1,Table 4.1 p.27
+addiw,1,1,Table 4.1 p.27
+sub,1,1,Table 4.1 p.27
+subw,1,1,Table 4.1 p.27
+and,1,1,Table 4.1 p.27
+andi,1,1,Table 4.1 p.27
+or,1,1,Table 4.1 p.27
+ori,1,1,Table 4.1 p.27
+xor,1,1,Table 4.1 p.27
+xori,1,1,Table 4.1 p.27
+sll,1,1,Table 4.1 p.27
+slli,1,1,Table 4.1 p.28
+srl,1,1,Table 4.1 p.28
+srli,1,1,Table 4.1 p.28
+sra,1,1,Table 4.1 p.28
+srai,1,1,Table 4.1 p.28
+sllw,1,1,Table 4.1 p.28
+slliw,1,1,Table 4.1 p.28
+srlw,1,1,Table 4.1 p.28
+srliw,1,1,Table 4.1 p.28
+sraw,1,1,Table 4.1 p.28
+sraiw,1,1,Table 4.1 p.28
+slt,1,1,Table 4.1 p.28
+sltu,1,1,Table 4.1 p.28
+slti,1,1,Table 4.1 p.28
+sltiu,1,1,Table 4.1 p.28
+lui,1,1,Table 4.1 p.28
+auipc,1,1,Table 4.1 p.29
+beq,1,1,Table 4.1 p.29
+bne,1,1,Table 4.1 p.29
+blt,1,1,Table 4.1 p.29
+bge,1,1,Table 4.1 p.29
+bltu,1,1,Table 4.1 p.29
+bgeu,1,1,Table 4.1 p.29
+jal,1,1,Table 4.1 p.29
+jalr,1,1,Table 4.1 p.29
+lb,1,2,"Table 4.1 p.29, cacheable load "">= 2"""
+lbu,1,2,"Table 4.1 p.29, cacheable load "">= 2"""
+lh,1,2,"Table 4.1 p.29, cacheable load "">= 2"""
+lhu,1,2,"Table 4.1 p.29, cacheable load "">= 2"""
+lw,1,2,"Table 4.1 p.29, cacheable load "">= 2"""
+lwu,1,2,"Table 4.1 p.29, cacheable load "">= 2"""
+ld,1,2,"Table 4.1 p.29, cacheable load "">= 2"""
+sb,1,1,"Table 4.1 p.29, cacheable store"
+sh,1,1,"Table 4.1 p.29, cacheable store"
+sw,1,1,"Table 4.1 p.29, cacheable store; the SW row reads Aperiodic alone, taken as a layout slip since SB, SH and SD read Same as above and C.SW in Table 4.6 gives 1"
+sd,1,1,"Table 4.1 p.29, cacheable store"
+csrrw,1,1,"Table 4.1 p.30 gives Blocked, no cycle count; issue cost assumed"
+csrrs,1,1,"Table 4.1 p.30 gives Blocked, no cycle count; issue cost assumed"
+csrrc,1,1,"Table 4.1 p.30 gives Blocked, no cycle count; issue cost assumed"
+csrrwi,1,1,"Table 4.1 p.30 gives Blocked, no cycle count; issue cost assumed"
+csrrsi,1,1,"Table 4.1 p.30 gives Blocked, no cycle count; issue cost assumed"
+csrrci,1,1,"Table 4.1 p.30 gives Blocked, no cycle count; issue cost assumed"
+ecall,1,1,Table 4.1 p.30
+ebreak,1,1,Table 4.1 p.30
+mul,1,6,"Table 4.2 p.31, ""3/6"", high end taken"
+mulh,1,6,"Table 4.2 p.31, ""3/6"", high end taken"
+mulhsu,1,6,"Table 4.2 p.31, ""3/6"", high end taken"
+mulhu,1,6,"Table 4.2 p.31, ""3/6"", high end taken"
+mulw,1,3,Table 4.2 p.31
+div,5,36,"Table 4.2 p.31, ""5-36"""
+divu,5,36,"Table 4.2 p.31, ""5-36"""
+rem,5,36,"Table 4.2 p.31, ""5-36"""
+remu,5,36,"Table 4.2 p.31, ""5-36"""
+divw,5,20,"Table 4.2 p.31, ""5-20"""
+divuw,5,20,"Table 4.2 p.31, ""5-20"""
+remw,5,20,"Table 4.2 p.31, ""5-20"""
+remuw,5,20,"Table 4.2 p.31, ""5-20"""
+fadd.s,1,3,Table 4.4 p.33
+fsub.s,1,3,Table 4.4 p.33
+fmul.s,1,3,Table 4.4 p.33
+fmadd.s,1,4,Table 4.4 p.33
+fmsub.s,1,4,Table 4.4 p.33
+fnmadd.s,1,4,Table 4.4 p.33
+fnmsub.s,1,4,Table 4.4 p.33
+fdiv.s,4,17,"Table 4.4 p.33, ""4 to 17"""
+fsqrt.s,4,17,"Table 4.4 p.33, ""4 to 17"""
+fsgnj.s,1,3,Table 4.4 p.34
+fsgnjn.s,1,3,Table 4.4 p.34
+fsgnjx.s,1,3,Table 4.4 p.34
+fmin.s,1,3,Table 4.4 p.34
+fmax.s,1,3,Table 4.4 p.34
+feq.s,1,3,Table 4.4 p.34
+flt.s,1,3,Table 4.4 p.34
+fle.s,1,3,Table 4.4 p.34
+fcvt.w.s,1,3,Table 4.4 p.34
+fcvt.wu.s,1,3,Table 4.4 p.34
+fcvt.s.w,1,3,Table 4.4 p.34
+fcvt.s.wu,1,3,Table 4.4 p.34
+fcvt.l.s,1,3,Table 4.4 p.35
+fcvt.lu.s,1,3,Table 4.4 p.35
+fcvt.s.l,1,3,Table 4.4 p.35
+fcvt.s.lu,1,3,Table 4.4 p.35
+fclass.s,1,3,Table 4.4 p.35
+flw,1,2,"Table 4.4 p.35, cacheable load "">= 2"""
+fsw,1,1,"Table 4.4 p.35, cacheable store"
+fmv.w.x,1,3,"Table 4.5 p.36, FMV.D.X row; no FMV.W.X row, inferred from the same move; Table 4.4 p.34 also has a single-precision move row, labelled FMV.D.X and described as a single-precision write move, with latency 3"
+fadd.d,1,4,Table 4.5 p.36
+fsub.d,1,4,Table 4.5 p.36
+fmul.d,1,4,Table 4.5 p.36
+fmadd.d,1,5,Table 4.5 p.36
+fmsub.d,1,5,Table 4.5 p.36
+fnmsub.d,1,5,Table 4.5 p.36
+fnmadd.d,1,5,Table 4.5 p.36
+fdiv.d,4,31,"Table 4.5 p.36, ""4 to 31"""
+fsqrt.d,4,31,"Table 4.5 p.36, ""4 to 31"""
+fsgnj.d,1,3,Table 4.5 p.36
+fsgnjn.d,1,3,Table 4.5 p.36
+fsgnjx.d,1,3,Table 4.5 p.36
+fmv.x.d,1,3,Table 4.5 p.36
+fmv.d.x,1,3,Table 4.5 p.36
+fmin.d,1,3,Table 4.5 p.37
+fmax.d,1,3,Table 4.5 p.37
+feq.d,1,3,Table 4.5 p.37
+flt.d,1,3,Table 4.5 p.37
+fle.d,1,3,Table 4.5 p.37
+fcvt.s.d,1,3,Table 4.5 p.37
+fcvt.d.s,1,3,Table 4.5 p.37
+fcvt.w.d,1,3,Table 4.5 p.37
+fcvt.wu.d,1,3,Table 4.5 p.37
+fcvt.d.w,1,3,Table 4.5 p.37
+fcvt.d.wu,1,3,Table 4.5 p.37
+fcvt.l.d,1,3,Table 4.5 p.37
+fcvt.lu.d,1,3,Table 4.5 p.38
+fcvt.d.l,1,3,Table 4.5 p.38
+fcvt.d.lu,1,3,Table 4.5 p.38
+fclass.d,1,3,Table 4.5 p.38
+fld,1,2,"Table 4.5 p.38, cacheable load "">= 2"""
+fsd,1,1,"Table 4.5 p.38, cacheable store"
