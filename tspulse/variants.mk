@@ -17,7 +17,14 @@
 # ░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀
 
 # Listed in the order they appear in a build's name
-SETTINGS :=
+SETTINGS := UNROLL
+
+# GCC unrolls without reordering the float sum, so the result stays exact
+UNROLL ?= off
+UNROLL_NAME := unroll
+UNROLL_DEFAULT := off
+UNROLL_VALUES := off on
+UNROLL_FLAGS_on := -funroll-loops
 
 # ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
 # ░▀▀█░█░█░█░█░█▀▄░█░░░█▀▀░▀▀█
