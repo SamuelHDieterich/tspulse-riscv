@@ -52,7 +52,7 @@ static void block_4x4(
     int r,
     int o
 ) {
-    // Every loop over k or m is unrolled by its `GCC unroll` pragma: GCC -O2 leaves these 4-step loops rolled, and then keeps xr, wo, acc, xi and wi in stack memory instead of registers
+    // Every loop over k or m is unrolled by its `GCC unroll` pragma: GCC -O3 unrolls these 4-step loops on its own, but -O2 leaves them rolled, and then keeps xr, wo, acc, xi and wi in stack memory instead of registers
 
     // Step 1: point at the block's input rows and weight rows, and start each sum from its bias
     const float *xr[BLOCK_ROWS];

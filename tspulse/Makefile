@@ -21,10 +21,10 @@ GENERATED := build/generated
 # -std=c11 turns fusing off silently, so no -std flag is given
 ifeq ($(TARGET),host)
 CC := gcc
-ARCH_FLAGS := -O2 -mfma --param avoid-fma-max-bits=0 -fno-tree-vectorize
+ARCH_FLAGS := -O3 -mfma --param avoid-fma-max-bits=0 -fno-tree-vectorize
 else ifeq ($(TARGET),rv64)
 CC := riscv64-none-elf-gcc
-ARCH_FLAGS := -march=rv64gc -mabi=lp64d -O2
+ARCH_FLAGS := -march=rv64gc -mabi=lp64d -O3
 else
 $(error unknown TARGET '$(TARGET)', expected host or rv64)
 endif
