@@ -25,6 +25,7 @@ from score.build_record import BUILD_FILE
 from score.layout import BENCHMARK_FOLDER
 from score.profile.cli import WORK_SUBFOLDER
 from score.spike_check import CLEAN_BINARY, HOST_ROLE, RV64_ROLE
+from score.variants.stage_names import VariantStage
 
 
 # ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀█░█▀█░▀█▀░█▀▀
@@ -36,23 +37,21 @@ REFERENCE_FILE = "reference.json"
 SELECTION_FILE = "selection.json"
 COLLECT_FILE = "collect.json"
 
+# The variant's one-row summary, in its tracked results folder
+SUMMARY_FILE = "summary.csv"
+
 # Every variant runs the same accuracy windows and counts the same windows, so their results line up with each other and with the baseline's
 SCOPES = [Scope.SCREEN]
 COUNT_WINDOWS = CountWindows.MIDDLE
-
-# The keys of `collect.json`: how many problems the last collect found, and the `label.json` hashes it read the units with
-COLLECT_PROBLEMS_KEY = "problems"
-COLLECT_SHA256_KEY = "sha256"
-
-# The key of `reference.json` holding one record per reference window, and the key of a record's verdict
-REFERENCE_WINDOWS_KEY = "windows"
-REFERENCE_OK_KEY = "ok"
 
 # The field of `ReferenceCheck` that holds nested records, which its reader builds before the check itself
 REFERENCE_WINDOWS_FIELD = "windows"
 
 # The key of the profile's `build.json` holding the build's hashes
 BUILD_SHA256_KEY = "sha256"
+
+# What `missing_stages` says when a label's files can't be read
+MISSING_UNREADABLE = "unreadable files"
 
 
 # ░█▀▀░█░░░█▀█░█▀▀░█▀▀░█▀▀░█▀▀
@@ -325,6 +324,31 @@ def read_reference_hashes(folder: Path) -> dict[str, str] | None:
     return None if check is None else check.sha256
 
 
+def read_reference_windows(folder: Path) -> list[ReferenceWindow] | None:
+    """Read the outcome of each reference window a label's check was made on.
+
+    Parameters
+    ----------
+    folder : Path
+        The label's folder.
+
+    Returns
+    -------
+    list[ReferenceWindow] or None
+        The records of `reference.json`, or None when there is no reference check.
+
+    Raises
+    ------
+    ValueError
+        When the file isn't JSON or its fields don't match `ReferenceCheck`'s.
+    OSError
+        When the file exists but can't be read.
+    """
+
+    check = read_reference(folder)
+    return None if check is None else check.windows
+
+
 def read_profile_hash(tables: Path) -> str | None:
     """Read the hash of the rv64 `tspulse` a label's profile tables were made with.
 
@@ -520,6 +544,70 @@ def binaries_problem(folder: Path, host_sha256: str, rv64_sha256: str) -> str | 
     return None
 
 
+def missing_stages(
+    top: Path, data: Path, label: str, working: list[Series]
+) -> list[str]:
+    """Name what a variant's label still lacks of everything the command makes, except `summary.csv`.
+
+    Parameters
+    ----------
+    top : Path
+        The git top level.
+    data : Path
+        The folder with the data.
+    label : str
+        The variant's label.
+    working : list[Series]
+        Every working series, which the label's selection picks from.
+
+    Returns
+    -------
+    list[str]
+        One short text per missing part: the reference check, the run, the collect, which says how many problems the last one found when it did read the label's units, and the profile. Empty when none is missing. Anything unreadable gives `MISSING_UNREADABLE` alone.
+    """
+
+    folder = label_folder(data, label)
+    tables = tables_folder(top, label)
+    try:
+        identity = read_identity(folder)
+        selection = read_selection(folder)
+        reference = read_reference_hashes(folder)
+        profile = read_profile_hash(tables)
+        collect = read_collect(folder)
+    except (OSError, ValueError):
+        return [MISSING_UNREADABLE]
+    missing: list[str] = []
+
+    # Step 1: the reference check was made with the binaries the label fixed
+    if reference is None or (
+        identity is not None
+        and identity.sha256.get(HOST_ROLE) != reference.get(CLEAN_BINARY)
+    ):
+        missing.append(VariantStage.REFERENCE)
+
+    # Step 2: without an identity or a selection nothing was run, so nothing was collected, and the profile has no binary to match
+    if identity is None or selection is None:
+        missing += [VariantStage.RUN, VariantStage.COLLECT]
+        if profile is None:
+            missing.append(VariantStage.PROFILE)
+        return missing
+
+    # Step 3: every unit of the selection has a result
+    if run_missing(folder, identity, selection, working):
+        missing.append(VariantStage.RUN)
+
+    # Step 4: both collected tables exist, from a collect that found no problem
+    if collect_missing(tables, identity, collect):
+        missing.append(VariantStage.COLLECT)
+    elif collect is not None and collect.problems:
+        missing.append(f"collect found {collect.problems} problems")
+
+    # Step 5: the profile was made with the rv64 binary the label fixed
+    if identity.sha256.get(RV64_ROLE) != profile:
+        missing.append(VariantStage.PROFILE)
+    return missing
+
+
 def is_done(top: Path, data: Path, label: str, working: list[Series]) -> bool:
     """Check on disk whether a variant's label holds every result the command makes.
 
@@ -537,41 +625,11 @@ def is_done(top: Path, data: Path, label: str, working: list[Series]) -> bool:
     Returns
     -------
     bool
-        True when the reference check and the profile were made with the label's binaries, every unit of its selection has a result, both collected tables exist, and the last collect read the label's units and found no problem. Anything unreadable counts as not done.
+        True when nothing is missing, as `missing_stages` says, and the summary exists. Anything unreadable counts as not done.
     """
 
-    folder = label_folder(data, label)
-    tables = tables_folder(top, label)
-    try:
-        identity = read_identity(folder)
-        selection = read_selection(folder)
-        reference = read_reference_hashes(folder)
-        profile = read_profile_hash(tables)
-    except (OSError, ValueError):
-        return False
-    if identity is None or selection is None or reference is None:
-        return False
-
-    # Step 1: the reference check and the profile were made with the binaries the label fixed
-    if identity.sha256.get(HOST_ROLE) != reference.get(CLEAN_BINARY):
-        return False
-    if identity.sha256.get(RV64_ROLE) != profile:
-        return False
-
-    # Step 2: every unit of the selection has a result
-    if run_missing(folder, identity, selection, working):
-        return False
-
-    # Step 3: both collected tables exist, from a collect that read the label's units and found no problem
-    try:
-        collect = read_collect(folder)
-    except (OSError, ValueError):
-        return False
-    return (
-        not collect_missing(tables, identity, collect)
-        and collect is not None
-        and collect.problems == 0
-    )
+    summary = tables_folder(top, label) / SUMMARY_FILE
+    return not missing_stages(top, data, label, working) and summary.is_file()
 
 
 def delete_for_redo(top: Path, data: Path, label: str) -> list[Path]:

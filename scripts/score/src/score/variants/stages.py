@@ -1,4 +1,4 @@
-"""Take one variant through its stages: build, reference check, `run`, `collect` and `profile`, each skipped when its results are already on disk."""
+"""Take one variant through its stages: build, reference check, `run`, `collect`, `profile` and the summary, each skipped when its results are already on disk."""
 
 # ░█░░░▀█▀░█▀▄░█▀▄░█▀█░█▀▄░▀█▀░█▀▀░█▀▀
 # ░█░░░░█░░█▀▄░█▀▄░█▀█░█▀▄░░█░░█▀▀░▀▀█
@@ -8,7 +8,6 @@
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import StrEnum
 from pathlib import Path
 
 # External
@@ -27,6 +26,7 @@ from score.spike_check import CLEAN_BINARY
 from score.variants.building import BASELINE_NAME, ResolvedVariant, build_variant
 from score.variants.listing import VariantError
 from score.variants.reference import check_reference
+from score.variants.stage_names import VariantStage
 from score.variants.state import (
     COUNT_WINDOWS,
     SCOPES,
@@ -45,6 +45,7 @@ from score.variants.state import (
     write_collect_record,
     write_selection,
 )
+from score.variants.summary import write_variant_summary
 
 
 # ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀█░█▀█░▀█▀░█▀▀
@@ -61,30 +62,6 @@ LINE_PREFIX = "variants"
 # ░█▀▀░█░░░█▀█░█▀▀░█▀▀░█▀▀░█▀▀
 # ░█░░░█░░░█▀█░▀▀█░▀▀█░█▀▀░▀▀█
 # ░▀▀▀░▀▀▀░▀░▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀
-
-
-class VariantStage(StrEnum):
-    """The stages a variant goes through, in order.
-
-    Attributes
-    ----------
-    BUILD : str
-        The host and rv64 builds.
-    REFERENCE : str
-        The 7 reference windows on the host dump build.
-    RUN : str
-        `benchmark run`: the accuracy windows on the host and the counted windows under Spike.
-    COLLECT : str
-        `benchmark collect` against the baseline.
-    PROFILE : str
-        `benchmark profile` on its default windows.
-    """
-
-    BUILD = "build"
-    REFERENCE = "reference check"
-    RUN = "run"
-    COLLECT = "collect"
-    PROFILE = "profile"
 
 
 @dataclass(frozen=True)
@@ -467,7 +444,28 @@ def run_variant(
         if not ok:
             return outcome
 
-    # Step 9: whether the label now holds everything. A problem in this call means it doesn't, whatever is on disk
+    # Step 9: the exactness and the summary, cheap enough to rewrite on every call, whether the label is done or not
+    ok, written = _stage(
+        VariantStage.SUMMARY,
+        lambda: write_variant_summary(top, data, label, variant, working),
+        log,
+        outcome,
+    )
+    if not ok:
+        return outcome
+    if written is not None:
+        cells, exactness = written
+        log.line(
+            f"{LINE_PREFIX}: {cells['verdict']}, {cells['windows_differing']} of {cells['windows_compared']} windows differ, status: {cells['status']}"
+        )
+        if exactness.left_out:
+            log.line(
+                f"{LINE_PREFIX}: left out of the comparison: {', '.join(exactness.left_out)}"
+            )
+        for text in exactness.problems:
+            _problem(log, outcome, f"exactness: {text}")
+
+    # Step 10: whether the label now holds everything. A problem in this call means it doesn't, whatever is on disk
     outcome.done = not outcome.problems and is_done(top, data, label, working)
     log.line(
         f"{LINE_PREFIX}: label {label} is {'done' if outcome.done else 'not done'}"
