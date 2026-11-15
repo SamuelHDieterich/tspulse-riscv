@@ -1,0 +1,59 @@
+{
+  "name": "unroll-on",
+  "settings": {
+    "UNROLL": "on"
+  },
+  "build": {
+    "commit": "b00eb2b356fd9109429dca9f6fa472033c43180d",
+    "tree": "6d48e70b4b1375933d8ca94ab472c534142dc188",
+    "dirty": false
+  },
+  "verdict": "identical",
+  "exactness": {
+    "windows_compared": 200641,
+    "windows_differing": 0
+  },
+  "reference": {
+    "pass": 7,
+    "fail": 0
+  },
+  "instructions": {
+    "u_mean": 1533171639.6458333,
+    "m_mean": 1528276144.5677776,
+    "ratio": 0.6312779619228692
+  },
+  "cycles": {
+    "low": 1542870961,
+    "high": 3615487754
+  },
+  "memory_bytes": {
+    "weights": 4045272,
+    "text": 68458,
+    "static": 224112,
+    "stack": 800,
+    "heap_per_channel": 4128
+  },
+  "traffic_bytes": 1049393856,
+  "vus_pr": {
+    "time": {
+      "value": 0.46455526481416265,
+      "difference": 0.0,
+      "worst": 0.0
+    },
+    "fft": {
+      "value": 0.45018826133056616,
+      "difference": 0.0,
+      "worst": 0.0
+    },
+    "forecast": {
+      "value": 0.37188642149722634,
+      "difference": 0.0,
+      "worst": 0.0
+    },
+    "ensemble": {
+      "value": 0.49783069296433946,
+      "difference": 0.0,
+      "worst": 0.0
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "baseline",
+  "verdict": "reference",
+  "instructions": {
+    "u_mean": 2428678476.6458335,
+    "m_mean": 2423790016.6633334
+  },
+  "cycles": {
+    "low": 2438388066,
+    "high": 4509504869
+  },
+  "memory_bytes": {
+    "weights": 4045272,
+    "text": 59070,
+    "static": 224112,
+    "stack": 800,
+    "heap_per_channel": 4128
+  },
+  "traffic_bytes": 1049843221,
+  "vus_pr": {
+    "time": {
+      "value": 0.46455526481416265
+    },
+    "fft": {
+      "value": 0.45018826133056616
+    },
+    "forecast": {
+      "value": 0.37188642149722634
+    },
+    "ensemble": {
+      "value": 0.49783069296433946
+    }
+  }
+}
