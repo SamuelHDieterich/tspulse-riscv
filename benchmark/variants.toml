@@ -1,0 +1,12 @@
+# The variants `benchmark variants` measures against the baseline, one `[[variant]]` each
+# A variant is named by its settings, as listed by `build-variant --list`; its name is the build's, never typed here
+# The baseline is every setting at its default, so it is never listed
+
+[[variant]]
+settings = { UNROLL = "on" }
+
+[[variant]]
+settings = { LINEAR = "blocked" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on" }
