@@ -17,7 +17,7 @@ from score.benchmark.units import (
 )
 
 # Internal
-from score.variants.building import BASELINE_NAME
+from score.build_record import BASELINE_NAME
 from score.variants.state import SCOPES, label_folder, read_selection
 
 

@@ -10,7 +10,8 @@ from pathlib import Path
 
 # Internal
 from score.benchmark.tables import TABLES_FOLDER
-from score.variants.building import BASELINE_NAME, ResolvedVariant
+from score.build_record import BASELINE_NAME
+from score.variants.building import ResolvedVariant
 from score.variants.listing import VariantError
 from score.variants.summary import (
     COLUMNS,

@@ -11,7 +11,7 @@ from pathlib import Path
 
 # Internal
 from score.benchmark.run import HOST_TARGET, RV64_TARGET, read_checked_build
-from score.build_record import BuildRecord
+from score.build_record import BASELINE_NAME, BuildRecord, build_path
 from score.spike_check import CLEAN_BINARY
 from score.variants.listing import MAKE_FOLDER, VariantEntry, VariantError
 
@@ -20,15 +20,9 @@ from score.variants.listing import MAKE_FOLDER, VariantEntry, VariantError
 # ░█░░░█░█░█░█░▀▀█░░█░░█▀█░█░█░░█░░▀▀█
 # ░▀▀▀░▀▀▀░▀░▀░▀▀▀░░▀░░▀░▀░▀░▀░░▀░░▀▀▀
 
-# The name of a build that sets nothing, which is the reference every variant is measured against
-BASELINE_NAME = "baseline"
-
 # Makefile snippet and target that print a build's name without compiling anything
 SHOW_NAME_TARGET = "show-name"
 SHOW_NAME_RULE = f"--eval={SHOW_NAME_TARGET}: ; @echo $(VARIANT_NAME)"
-
-# Where each target's build folder sits, under the make folder
-BUILD_FOLDER = Path("build")
 
 
 # ░█▀▀░█░░░█▀█░█▀▀░█▀▀░█▀▀░█▀▀
@@ -186,7 +180,7 @@ def build_variant(variant: ResolvedVariant, top: Path) -> BuiltVariant:
             raise VariantError(
                 f"Building {variant.name} for {target} failed with exit code {process.returncode}."
             )
-        folders[target] = top / MAKE_FOLDER / BUILD_FOLDER / variant.name / target
+        folders[target] = build_path(top / MAKE_FOLDER, variant.name, target)
     records = {
         target: read_checked_build(folders[target], (CLEAN_BINARY,))
         for target in folders

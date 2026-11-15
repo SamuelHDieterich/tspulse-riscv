@@ -17,8 +17,9 @@ from score.benchmark.run import EXIT_INTERRUPTED, EXIT_REFUSED, _folder_name
 from score.benchmark.scope import read_series
 
 # Internal
+from score.build_record import BASELINE_NAME
 from score.spike_check import _top_level
-from score.variants.building import BASELINE_NAME, ResolvedVariant, resolve_names
+from score.variants.building import ResolvedVariant, resolve_names
 from score.variants.listing import VariantError, read_listing
 from score.variants.merge import merge_variants, short_form, table_path
 from score.variants.stages import RunOptions, VariantOutcome, run_variant

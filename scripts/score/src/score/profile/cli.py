@@ -27,7 +27,12 @@ from score.benchmark.run import (
 )
 from score.benchmark.scope import read_series
 from score.benchmark.tables import TABLES_FOLDER
-from score.build_record import write_build
+from score.build_record import (
+    BuildRecordError,
+    generated_folder,
+    source_folder,
+    write_build,
+)
 from score.layout import BENCHMARK_FOLDER
 from score.profile.cycles import load_weights
 from score.profile.disassembly import read_mnemonics
@@ -73,7 +78,7 @@ ROWS_ROLE = "rows"
 CLEAN_ROLE = "clean"
 PROFILE_ROLE = "profile"
 
-# The generated weight table's name in the record's generated folder, and where the `.ci` files sit in the build folder
+# The generated weight table's name in the generated folder, and where the `.ci` files sit in the build folder
 WEIGHTS_TABLE = "weights_table.c"
 STACK_FOLDER = "stack"
 
@@ -259,12 +264,19 @@ def profile(
             typer.echo(f"Not found: {path}", err=True)
             raise typer.Exit(EXIT_REFUSED)
 
-    # The binaries must match the build's record before anything else is checked, so a stale one is refused for that reason. The record also says where the weight table and the sources are, which differs per build folder
+    # The binaries must match the build's record before anything else is checked, so a stale one is refused for that reason
     record = read_checked_build(build_folder, (CLEAN_BINARY, PROFILE_BINARY))
+
+    # The weight table and the sources belong to the tree the build folder sits in, as the Makefile lays it out
+    try:
+        source = source_folder(record, build_folder)
+    except BuildRecordError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(EXIT_REFUSED) from error
 
     # The tables read the `.ci` files and the weight table after the runs, and an old build folder may lack them, which would waste the Spike time
     stack_folder = build_folder / STACK_FOLDER
-    weights_table = Path(record.generated_dir) / WEIGHTS_TABLE
+    weights_table = generated_folder(source) / WEIGHTS_TABLE
     if not any(stack_folder.rglob("*.ci")):
         typer.echo(
             f"No .ci file under {stack_folder}: run `make TARGET=rv64` in tspulse/.",
@@ -347,7 +359,7 @@ def profile(
             functions,
             weights_table,
             stack_folder,
-            Path(record.source_dir),
+            source,
         )
         write_build(record, tables)
     except (OSError, ProfileError) as error:

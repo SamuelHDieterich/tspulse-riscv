@@ -87,7 +87,7 @@ export FLAGS_RECORD := $(CC) $(shell command -v $(CC)) | $(CPPFLAGS) | $(CFLAGS)
 RECORDED_CPPFLAGS := $(strip $(filter-out -I%,$(CPPFLAGS)))
 RECORDED_CFLAGS := $(strip $(CFLAGS))
 RECORDED_LDLIBS := $(LDLIBS)
-OVERRIDDEN := $(foreach v,CC ARCH_FLAGS BUILD,$(if $(filter command line,$(origin $(v))),$(v)))
+OVERRIDDEN := $(foreach v,CC ARCH_FLAGS BUILD GENERATED,$(if $(filter command line,$(origin $(v))),$(v)))
 
 # ░█▀▀░█▀▀░█▀█░█▀▀░█▀▄░█▀█░▀█▀░█▀█░█▀▄
 # ░█░█░█▀▀░█░█░█▀▀░█▀▄░█▀█░░█░░█░█░█▀▄
@@ -209,7 +209,6 @@ CC_VERSION = $(shell $(CC) --version 2>/dev/null | head -n 1)
 GIT_COMMIT = $(shell git rev-parse HEAD 2>/dev/null)
 GIT_TREE = $(shell git rev-parse 'HEAD^{tree}' 2>/dev/null)
 GIT_DIRTY = $(shell git status --porcelain -- ':(top)' ':(top,exclude)benchmark/results' 2>/dev/null)
-GENERATED_DIR := $(CURDIR)/$(GENERATED)
 
 define BUILD_JSON
 {
@@ -224,8 +223,6 @@ define BUILD_JSON
   "file_flags": {"$(REVIN_FILE)": $(call json_var,REVIN_FLAGS)},
   "sources": [$(foreach f,$(PROGRAM_SOURCES),$(call json_sep,$(f),$(PROGRAM_SOURCES))"$(f)")],
   "overrides": {$(foreach v,$(OVERRIDDEN),$(call json_sep,$(v),$(OVERRIDDEN))"$(v)": $(call json_var,$(v)))},
-  "source_dir": $(call json_var,CURDIR),
-  "generated_dir": $(call json_var,GENERATED_DIR),
   "commit": $(if $(GIT_COMMIT),"$(GIT_COMMIT)",null),
   "tree": $(if $(GIT_TREE),"$(GIT_TREE)",null),
   "dirty": $(if $(GIT_COMMIT),$(if $(GIT_DIRTY),true,false),null),

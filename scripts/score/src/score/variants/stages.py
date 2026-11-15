@@ -21,9 +21,10 @@ from score.benchmark.run import EXIT_INTERRUPTED, run
 from score.benchmark.scope import Series
 
 # Internal
+from score.build_record import BASELINE_NAME
 from score.profile.cli import profile
 from score.spike_check import CLEAN_BINARY
-from score.variants.building import BASELINE_NAME, ResolvedVariant, build_variant
+from score.variants.building import ResolvedVariant, build_variant
 from score.variants.listing import VariantError
 from score.variants.reference import check_reference
 from score.variants.stage_names import VariantStage

@@ -21,14 +21,22 @@ from score.spike_check import _sha256
 # The record's file name, in each build folder
 BUILD_FILE = "build.json"
 
+# The name of a build that sets nothing, which is the reference every variant is measured against
+BASELINE_NAME = "baseline"
+
+# Where the Makefile puts the builds and the generated weights, under the source folder
+BUILD_FOLDER = "build"
+GENERATED_FOLDER = "generated"
+
+# The Make variables that move the build or generated folders, as `overrides` names them
+FOLDER_OVERRIDES = ("BUILD", "GENERATED")
+
 # The fields that say where and when a build was made, not what it is, so they stay out of a label's identity
 NON_IDENTITY_FIELDS = (
     "commit",
     "tree",
     "dirty",
     "sha256",
-    "source_dir",
-    "generated_dir",
 )
 
 
@@ -69,10 +77,6 @@ class BuildRecord:
         The source files compiled.
     overrides : dict[str, str]
         The command-line overrides of the compiler or its flags.
-    source_dir : str
-        The `tspulse` source folder.
-    generated_dir : str
-        The folder with the generated weight table.
     commit : str or None
         `git rev-parse HEAD` when the build ran, None outside a git repository.
     tree : str or None
@@ -94,8 +98,6 @@ class BuildRecord:
     file_flags: dict[str, str]
     sources: list[str]
     overrides: dict[str, str]
-    source_dir: str
-    generated_dir: str
     commit: str | None
     tree: str | None
     dirty: bool | None
@@ -144,6 +146,102 @@ def read_build(folder: Path) -> BuildRecord:
             f"{path} doesn't have the fields of a build record (differing: {', '.join(found) or 'not an object'}): rebuild with build-variant."
         )
     return BuildRecord(**stored)
+
+
+def _build_parts(name: str, target: str) -> tuple[str, ...]:
+    """Give the path of a build folder under its source folder, as the Makefile's `BUILD` rule lays it out.
+
+    Parameters
+    ----------
+    name : str
+        The build's name.
+    target : str
+        `host` or `rv64`.
+
+    Returns
+    -------
+    tuple[str, ...]
+        The path's parts. The baseline has no folder of its own between `build` and the target.
+    """
+
+    if name == BASELINE_NAME:
+        return (BUILD_FOLDER, target)
+    return (BUILD_FOLDER, name, target)
+
+
+def build_path(source: Path, name: str, target: str) -> Path:
+    """Find where the Makefile puts a build.
+
+    Parameters
+    ----------
+    source : Path
+        The source folder, which holds the Makefile.
+    name : str
+        The build's name.
+    target : str
+        `host` or `rv64`.
+
+    Returns
+    -------
+    Path
+        The build folder.
+    """
+
+    return source.joinpath(*_build_parts(name, target))
+
+
+def source_folder(record: BuildRecord, build_folder: Path) -> Path:
+    """Find the `tspulse` source folder a build folder belongs to.
+
+    Parameters
+    ----------
+    record : BuildRecord
+        The build folder's record.
+    build_folder : Path
+        The build folder.
+
+    Returns
+    -------
+    Path
+        The source folder, which holds the Makefile.
+
+    Raises
+    ------
+    BuildRecordError
+        When the build was made with a `BUILD` override, or its folder isn't where the Makefile puts a build of this name and target.
+    """
+
+    # A `make BUILD=…` folder can sit anywhere, even under another tree's `build/<target>`, so the path alone can't say which sources it came from
+    moved = [name for name in FOLDER_OVERRIDES if name in record.overrides]
+    if moved:
+        raise BuildRecordError(
+            f"{build_folder} was built with `make {moved[0]}=…`, so its source folder can't be found: build it without the override."
+        )
+
+    parts = _build_parts(record.name, record.target)
+    resolved = build_folder.resolve()
+    if resolved.parts[-len(parts) :] != parts:
+        raise BuildRecordError(
+            f"{build_folder} isn't a folder of the form {'/'.join(parts)}, so the source folder can't be found: was it moved or copied there?"
+        )
+    return resolved.parents[len(parts) - 1]
+
+
+def generated_folder(source: Path) -> Path:
+    """Give the folder with the generated weights.
+
+    Parameters
+    ----------
+    source : Path
+        The source folder.
+
+    Returns
+    -------
+    Path
+        The generated folder, as the Makefile's `GENERATED`.
+    """
+
+    return source / BUILD_FOLDER / GENERATED_FOLDER
 
 
 def check_binaries(record: BuildRecord, folder: Path, roles: tuple[str, ...]) -> None:

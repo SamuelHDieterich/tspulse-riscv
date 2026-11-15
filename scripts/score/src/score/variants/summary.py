@@ -16,7 +16,12 @@ from typing import get_args
 from score.benchmark.scope import Scope, Series, read_series
 from score.benchmark.tables import ACCURACY_TABLE, INSTRUCTIONS_TABLE
 from score.benchmark.units import _counted_windows
-from score.build_record import BUILD_FILE, BuildRecordError, read_build
+from score.build_record import (
+    BASELINE_NAME,
+    BUILD_FILE,
+    BuildRecordError,
+    read_build,
+)
 from score.kind import Kind
 from score.profile.cli import WORK_SUBFOLDER
 from score.profile.memory import TEXT_SECTION, MemoryKind
@@ -28,7 +33,7 @@ from score.profile.tables import (
     MEMORY_TABLE,
     TRAFFIC_TABLE,
 )
-from score.variants.building import BASELINE_NAME, ResolvedVariant
+from score.variants.building import ResolvedVariant
 from score.variants.exactness import Exactness, measure_exactness
 from score.variants.formula import evaluate_formula
 from score.variants.listing import VariantError
