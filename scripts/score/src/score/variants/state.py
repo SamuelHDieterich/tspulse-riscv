@@ -37,8 +37,8 @@ REFERENCE_FILE = "reference.json"
 SELECTION_FILE = "selection.json"
 COLLECT_FILE = "collect.json"
 
-# The variant's one-row summary, in its tracked results folder
-SUMMARY_FILE = "summary.csv"
+# The variant's summary, in its tracked results folder
+SUMMARY_FILE = "summary.json"
 
 # Every variant runs the same accuracy windows and counts the same windows, so their results line up with each other and with the baseline's
 SCOPES = [Scope.SCREEN]
@@ -547,7 +547,7 @@ def binaries_problem(folder: Path, host_sha256: str, rv64_sha256: str) -> str | 
 def missing_stages(
     top: Path, data: Path, label: str, working: list[Series]
 ) -> list[str]:
-    """Name what a variant's label still lacks of everything the command makes, except `summary.csv`.
+    """Name what a variant's label still lacks of everything the command makes, except `summary.json`.
 
     Parameters
     ----------

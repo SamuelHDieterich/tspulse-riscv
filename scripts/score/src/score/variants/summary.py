@@ -1,4 +1,4 @@
-"""A label's one-row summary: what the variant is, whether it is exact, and what it costs and scores."""
+"""A label's summary: what the variant is, whether it is exact, and what it costs and scores."""
 
 # ░█░░░▀█▀░█▀▄░█▀▄░█▀█░█▀▄░▀█▀░█▀▀░█▀▀
 # ░█░░░░█░░█▀▄░█▀▄░█▀█░█▀▄░░█░░█▀▀░▀▀█
@@ -7,7 +7,6 @@
 # Built-in
 import csv
 import math
-from enum import StrEnum
 from pathlib import Path
 from statistics import fmean
 from typing import get_args
@@ -39,11 +38,23 @@ from score.variants.formula import evaluate_formula
 from score.variants.listing import VariantError
 from score.variants.state import (
     COUNT_WINDOWS,
-    SUMMARY_FILE,
     label_folder,
     missing_stages,
     read_reference_windows,
     tables_folder,
+)
+from score.variants.summary_record import (
+    BuildSource,
+    Cycles,
+    ExactnessCounts,
+    HeadVus,
+    Instructions,
+    MemoryBytes,
+    ReferenceCounts,
+    Summary,
+    Verdict,
+    summary_path,
+    write_summary,
 )
 
 
@@ -51,13 +62,16 @@ from score.variants.state import (
 # ░█░░░█░█░█░█░▀▀█░░█░░█▀█░█░█░░█░░▀▀█
 # ░▀▀▀░▀▀▀░▀░▀░▀▀▀░░▀░░▀░▀░▀░▀░░▀░░▀▀▀
 
-# The heads whose VUS-PR the summary keeps, and the scope and metric it reads them in
-VUS_HEADS = ("time", "fft", "forecast", "ensemble")
+# The heads whose VUS-PR the summary keeps, the one the short form shows, and the scope and metric it reads them in
+ENSEMBLE_HEAD = "ensemble"
+VUS_HEADS = ("time", "fft", "forecast", ENSEMBLE_HEAD)
 VUS_SCOPE = Scope.SCREEN
 VUS_METRIC = "VUS-PR"
 
-# The status of a variant that has no summary yet, and of one with nothing missing
-STATUS_NOT_RUN = "not run"
+# What a variant with no summary yet lacks
+MISSING_NOT_RUN = "not run"
+
+# What the terminal and the log say of a label that lacks nothing
 STATUS_DONE = "done"
 
 # The channel count the heap formulas are evaluated at
@@ -92,63 +106,6 @@ BYTES_COLUMN = "bytes"
 FORMULA_COLUMN = "formula"
 LOW_COLUMN = "low"
 HIGH_COLUMN = "high"
-
-# The summary's columns, in the order of the merged table
-COLUMNS = [
-    "name",
-    "settings",
-    "build_commit",
-    "build_tree",
-    "build_dirty",
-    "status",
-    "verdict",
-    "windows_compared",
-    "windows_differing",
-    "reference_pass",
-    "reference_fail",
-    "instructions_u_mean",
-    "instructions_m_mean",
-    "instructions_ratio",
-    "cycles_low",
-    "cycles_high",
-    "weights_bytes",
-    "text_bytes",
-    "static_bytes",
-    "stack_bytes",
-    "heap_bytes_per_channel",
-    "traffic_bytes",
-    *[
-        f"vus_pr_{head}{suffix}"
-        for head in VUS_HEADS
-        for suffix in ("", "_diff", "_worst")
-    ],
-]
-
-
-# ░█▀▀░█░░░█▀█░█▀▀░█▀▀░█▀▀░█▀▀
-# ░█░░░█░░░█▀█░▀▀█░▀▀█░█▀▀░▀▀█
-# ░▀▀▀░▀▀▀░▀░▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀
-
-
-class Verdict(StrEnum):
-    """The verdicts a summary gives.
-
-    Attributes
-    ----------
-    IDENTICAL : str
-        Every compared window matches the baseline's.
-    WITHIN : str
-        Not identical, but every reference window passed.
-    BEYOND : str
-        Some reference window failed.
-    REFERENCE : str
-        The baseline itself, which the others are measured against.
-    """
-
-    IDENTICAL = "identical"
-    WITHIN = "within-tolerance"
-    BEYOND = "beyond-tolerance"
-    REFERENCE = "reference"
 
 
 # ░█▄█░█▀▀░▀█▀░█░█░█▀█░█▀▄░█▀▀
@@ -203,8 +160,8 @@ def _numbers(rows: list[dict[str, str]], column: str) -> list[float]:
     return values
 
 
-def _mean(values: list[float]) -> str:
-    """Format the mean of some numbers.
+def _mean(values: list[float]) -> float | None:
+    """Take the mean of some numbers.
 
     Parameters
     ----------
@@ -213,16 +170,16 @@ def _mean(values: list[float]) -> str:
 
     Returns
     -------
-    str
-        Their mean in full precision, or an empty cell when there are none.
+    float or None
+        Their mean, or None when there are none.
     """
 
-    return "" if not values else repr(fmean(values))
+    return fmean(values) if values else None
 
 
-def _instruction_cells(
+def _instructions(
     tables: Path, counted: set[tuple[str, str]] | None = None
-) -> dict[str, str]:
+) -> Instructions:
     """Take the instruction means from a label's instruction table.
 
     Parameters
@@ -234,8 +191,8 @@ def _instruction_cells(
 
     Returns
     -------
-    dict[str, str]
-        `instructions_u_mean`, `instructions_m_mean` and `instructions_ratio`, the last empty for a table without a `ratio` column.
+    Instructions
+        The means over the univariate and multivariate rows, and the mean ratio, None for a table without a `ratio` column.
     """
 
     rows = _read_table(tables / INSTRUCTIONS_TABLE)
@@ -245,14 +202,14 @@ def _instruction_cells(
         ]
     of_u = [row for row in rows if row[KIND_COLUMN] == Kind.U]
     of_m = [row for row in rows if row[KIND_COLUMN] == Kind.M]
-    return {
-        "instructions_u_mean": _mean(_numbers(of_u, PER_CHANNEL_COLUMN)),
-        "instructions_m_mean": _mean(_numbers(of_m, PER_CHANNEL_COLUMN)),
-        "instructions_ratio": _mean(_numbers(of_u, RATIO_COLUMN)),
-    }
+    return Instructions(
+        u_mean=_mean(_numbers(of_u, PER_CHANNEL_COLUMN)),
+        m_mean=_mean(_numbers(of_m, PER_CHANNEL_COLUMN)),
+        ratio=_mean(_numbers(of_u, RATIO_COLUMN)),
+    )
 
 
-def _vus_cells(tables: Path) -> dict[str, str]:
+def _vus(tables: Path) -> dict[str, HeadVus]:
     """Take each head's screen VUS-PR from a label's accuracy table.
 
     Parameters
@@ -262,12 +219,12 @@ def _vus_cells(tables: Path) -> dict[str, str]:
 
     Returns
     -------
-    dict[str, str]
-        Per head, the mean `value` over series, the mean `difference` from the baseline and the most negative one. The difference cells are empty for a table without `--against` columns, and any cell is empty when no series has a VUS.
+    dict[str, HeadVus]
+        Per head, the mean `value` over series, the mean `difference` from the baseline and the most negative one. The differences are None for a table without `--against` columns, and any field is None when no series has a VUS.
     """
 
     rows = _read_table(tables / ACCURACY_TABLE)
-    cells = {}
+    vus = {}
     for head in VUS_HEADS:
         of_head = [
             row
@@ -277,14 +234,16 @@ def _vus_cells(tables: Path) -> dict[str, str]:
             and row[HEAD_COLUMN] == head
         ]
         differences = _numbers(of_head, DIFFERENCE_COLUMN)
-        cells[f"vus_pr_{head}"] = _mean(_numbers(of_head, VALUE_COLUMN))
-        cells[f"vus_pr_{head}_diff"] = _mean(differences)
-        # The most negative difference is the series that got worst
-        cells[f"vus_pr_{head}_worst"] = repr(min(differences)) if differences else ""
-    return cells
+        vus[head] = HeadVus(
+            value=_mean(_numbers(of_head, VALUE_COLUMN)),
+            difference=_mean(differences),
+            # The most negative difference is the series that got worst
+            worst=min(differences) if differences else None,
+        )
+    return vus
 
 
-def _profile_cells(profile: Path) -> dict[str, str]:
+def _profile(profile: Path) -> tuple[Cycles, MemoryBytes, int]:
     """Take the cycles, sizes and traffic from a label's profile tables.
 
     Parameters
@@ -294,8 +253,8 @@ def _profile_cells(profile: Path) -> dict[str, str]:
 
     Returns
     -------
-    dict[str, str]
-        `cycles_low`, `cycles_high`, the memory sizes and `traffic_bytes`.
+    tuple[Cycles, MemoryBytes, int]
+        The cycle range, the memory sizes and the traffic in bytes.
 
     Raises
     ------
@@ -339,24 +298,23 @@ def _profile_cells(profile: Path) -> dict[str, str]:
     )
     if text is None or not by_kind[WEIGHTS] or not by_kind[STACK]:
         raise ValueError(f"{profile}/{MEMORY_TABLE} lacks weights, .text or stack")
-    return {
-        "cycles_low": cycles[LOW_COLUMN],
-        "cycles_high": cycles[HIGH_COLUMN],
-        "weights_bytes": by_kind[WEIGHTS][0][BYTES_COLUMN],
-        "text_bytes": text[BYTES_COLUMN],
-        "static_bytes": str(sum(int(row[BYTES_COLUMN]) for row in by_kind[STATIC])),
-        "stack_bytes": by_kind[STACK][0][BYTES_COLUMN],
-        "heap_bytes_per_channel": str(
-            sum(
+    return (
+        Cycles(low=int(cycles[LOW_COLUMN]), high=int(cycles[HIGH_COLUMN])),
+        MemoryBytes(
+            weights=int(by_kind[WEIGHTS][0][BYTES_COLUMN]),
+            text=int(text[BYTES_COLUMN]),
+            static=sum(int(row[BYTES_COLUMN]) for row in by_kind[STATIC]),
+            stack=int(by_kind[STACK][0][BYTES_COLUMN]),
+            heap_per_channel=sum(
                 evaluate_formula(row[FORMULA_COLUMN], HEAP_CHANNELS)
                 for row in by_kind[HEAP]
-            )
+            ),
         ),
-        "traffic_bytes": traffic[VALUE_COLUMN],
-    }
+        int(traffic[VALUE_COLUMN]),
+    )
 
 
-def _build_cells(profile: Path) -> dict[str, str]:
+def _build(profile: Path) -> BuildSource | None:
     """Take the build's commit, tree and dirty flag from the profile's `build.json`.
 
     Parameters
@@ -366,8 +324,8 @@ def _build_cells(profile: Path) -> dict[str, str]:
 
     Returns
     -------
-    dict[str, str]
-        `build_commit`, `build_tree` and `build_dirty`, all empty when there is no record, as for the baseline.
+    BuildSource or None
+        The build's commit, tree and dirty flag, None when there is no record, as for the baseline.
 
     Raises
     ------
@@ -376,105 +334,33 @@ def _build_cells(profile: Path) -> dict[str, str]:
     """
 
     if not (profile / BUILD_FILE).is_file():
-        return {"build_commit": "", "build_tree": "", "build_dirty": ""}
+        return None
     try:
         record = read_build(profile)
     except BuildRecordError as error:
         raise ValueError(str(error)) from error
-    return {
-        "build_commit": str(record.commit),
-        "build_tree": str(record.tree),
-        "build_dirty": str(record.dirty),
-    }
+    return BuildSource(commit=record.commit, tree=record.tree, dirty=record.dirty)
 
 
-def _row(cells: dict[str, str]) -> dict[str, str]:
-    """Fill the columns a row doesn't set with empty cells.
+def status_text(summary: Summary) -> str:
+    """Say in words whether a label is done, or what it lacks.
 
     Parameters
     ----------
-    cells : dict[str, str]
-        The cells set.
+    summary : Summary
+        The label's summary.
 
     Returns
     -------
-    dict[str, str]
-        One cell per column of `COLUMNS`.
+    str
+        `done` when nothing is missing, else the missing parts joined by `; `.
     """
 
-    return {column: cells.get(column, "") for column in COLUMNS}
+    return "; ".join(summary.missing) or STATUS_DONE
 
 
-def write_row(path: Path, cells: dict[str, str]) -> None:
-    """Write a one-row summary, a header and the row.
-
-    Parameters
-    ----------
-    path : Path
-        The file, whose folder is made.
-    cells : dict[str, str]
-        The row's cells by column.
-    """
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="") as file:
-        writer = csv.DictWriter(file, COLUMNS, lineterminator="\n")
-        writer.writeheader()
-        writer.writerow(_row(cells))
-
-
-def read_row(path: Path) -> dict[str, str] | None:
-    """Read a one-row summary.
-
-    Parameters
-    ----------
-    path : Path
-        The file.
-
-    Returns
-    -------
-    dict[str, str] or None
-        The row by column, or None when there is no file.
-
-    Raises
-    ------
-    ValueError
-        When the file doesn't hold exactly one row of `COLUMNS`.
-    OSError
-        When the file exists but can't be read.
-    """
-
-    if not path.is_file():
-        return None
-    with path.open(newline="") as file:
-        reader = csv.DictReader(file)
-        rows = list(reader)
-        if reader.fieldnames != COLUMNS or len(rows) != 1:
-            raise ValueError(f"{path} is not a one-row summary")
-    return rows[0]
-
-
-def summary_path(top: Path, label: str) -> Path:
-    """Where a label's summary sits.
-
-    Parameters
-    ----------
-    top : Path
-        The git top level.
-    label : str
-        The label.
-
-    Returns
-    -------
-    Path
-        `summary.csv` in the label's tracked results folder.
-    """
-
-    return tables_folder(top, label) / SUMMARY_FILE
-
-
-def settings_text(variant: ResolvedVariant) -> str:
-    """Spell a variant's settings the way the table does.
+def not_run_summary(variant: ResolvedVariant) -> Summary:
+    """Stand in for the summary of a variant that has none yet.
 
     Parameters
     ----------
@@ -483,15 +369,19 @@ def settings_text(variant: ResolvedVariant) -> str:
 
     Returns
     -------
-    str
-        `A=b B=c`, in the list's order.
+    Summary
+        Only the variant's name and settings, and `not run` as what it lacks.
     """
 
-    return " ".join(f"{name}={value}" for name, value in variant.entry.settings.items())
+    return Summary(
+        name=variant.name,
+        settings=dict(variant.entry.settings),
+        missing=[MISSING_NOT_RUN],
+    )
 
 
-def baseline_cells(top: Path) -> dict[str, str]:
-    """Compute the baseline's row from its tracked tables and profile, running nothing.
+def baseline_summary(top: Path) -> Summary:
+    """Compute the baseline's summary from its tracked tables and profile, running nothing.
 
     Parameters
     ----------
@@ -500,8 +390,8 @@ def baseline_cells(top: Path) -> dict[str, str]:
 
     Returns
     -------
-    dict[str, str]
-        The baseline's cells, its instruction means over the windows the variants count. Its settings, build, status, exactness, reference and difference cells are empty, since it is measured against nothing and has no build record.
+    Summary
+        The baseline's summary, its instruction means over the windows the variants count. Its settings, build, missing, exactness, reference, ratio and difference fields are left out, since it is measured against nothing and has no build record.
 
     Raises
     ------
@@ -519,19 +409,22 @@ def baseline_cells(top: Path) -> dict[str, str]:
         for one in read_series(top)
         for window in _counted_windows(one, COUNT_WINDOWS)
     }
-    return {
-        "name": BASELINE_NAME,
-        "verdict": Verdict.REFERENCE,
-        **_instruction_cells(tables, counted),
-        **_vus_cells(tables),
-        **_profile_cells(tables / WORK_SUBFOLDER),
-    }
+    cycles, memory, traffic = _profile(tables / WORK_SUBFOLDER)
+    return Summary(
+        name=BASELINE_NAME,
+        verdict=Verdict.REFERENCE,
+        instructions=_instructions(tables, counted),
+        cycles=cycles,
+        memory_bytes=memory,
+        traffic_bytes=traffic,
+        vus_pr=_vus(tables),
+    )
 
 
-def _status(
+def _missing(
     top: Path, data: Path, label: str, working: list[Series], exactness: Exactness
-) -> str:
-    """Say whether the label is done, or what it lacks.
+) -> list[str]:
+    """Name what the label lacks.
 
     Parameters
     ----------
@@ -548,8 +441,8 @@ def _status(
 
     Returns
     -------
-    str
-        `done` when the done rule holds except for the summary itself, else the missing parts joined by `; `.
+    list[str]
+        What the done rule lacks except for the summary itself, and the left-out series and exactness problems. Empty when the label is done.
     """
 
     lacking = missing_stages(top, data, label, working)
@@ -557,10 +450,10 @@ def _status(
         lacking.append(f"{len(exactness.left_out)} series left out")
     if exactness.problems:
         lacking.append(f"{len(exactness.problems)} exactness problems")
-    return "; ".join(lacking) if lacking else STATUS_DONE
+    return lacking
 
 
-def _verdict(exactness: Exactness, reference_fail: int, reference_pass: int) -> str:
+def _verdict(exactness: Exactness, reference_fail: int, reference_pass: int) -> Verdict:
     """Judge a variant from its exactness and its reference windows.
 
     Parameters
@@ -574,8 +467,8 @@ def _verdict(exactness: Exactness, reference_fail: int, reference_pass: int) -> 
 
     Returns
     -------
-    str
-        `identical` when every compared window matches and no selected series was left out, else `within-tolerance` when every reference window passed, else `beyond-tolerance`.
+    Verdict
+        `IDENTICAL` when every compared window matches and no selected series was left out, else `WITHIN` when every reference window passed, else `BEYOND`.
     """
 
     exact = (
@@ -591,10 +484,10 @@ def _verdict(exactness: Exactness, reference_fail: int, reference_pass: int) -> 
     return Verdict.BEYOND
 
 
-def variant_cells(
+def variant_summary(
     top: Path, data: Path, label: str, variant: ResolvedVariant, working: list[Series]
-) -> tuple[dict[str, str], Exactness]:
-    """Compute a variant's row from its own files, never from a local build.
+) -> tuple[Summary, Exactness]:
+    """Compute a variant's summary from its own files, never from a local build.
 
     Parameters
     ----------
@@ -611,13 +504,13 @@ def variant_cells(
 
     Returns
     -------
-    tuple[dict[str, str], Exactness]
-        The variant's cells and its exactness.
+    tuple[Summary, Exactness]
+        The variant's summary and its exactness.
 
     Raises
     ------
     ValueError
-        When a file the row needs is missing or can't be used.
+        When a file the summary needs is missing or can't be used.
     OSError
         When a file can't be read.
     """
@@ -629,27 +522,31 @@ def variant_cells(
     reference_pass = sum(window.ok for window in windows)
     reference_fail = len(windows) - reference_pass
     exactness = measure_exactness(data, label, working)
-    cells = {
-        "name": variant.name,
-        "settings": settings_text(variant),
-        **_build_cells(tables / WORK_SUBFOLDER),
-        "status": _status(top, data, label, working, exactness),
-        "verdict": _verdict(exactness, reference_fail, reference_pass),
-        "windows_compared": str(exactness.windows_compared),
-        "windows_differing": str(exactness.windows_differing),
-        "reference_pass": str(reference_pass),
-        "reference_fail": str(reference_fail),
-        **_instruction_cells(tables),
-        **_vus_cells(tables),
-        **_profile_cells(tables / WORK_SUBFOLDER),
-    }
-    return cells, exactness
+    cycles, memory, traffic = _profile(tables / WORK_SUBFOLDER)
+    summary = Summary(
+        name=variant.name,
+        settings=dict(variant.entry.settings),
+        build=_build(tables / WORK_SUBFOLDER),
+        missing=_missing(top, data, label, working, exactness),
+        verdict=_verdict(exactness, reference_fail, reference_pass),
+        exactness=ExactnessCounts(
+            windows_compared=exactness.windows_compared,
+            windows_differing=exactness.windows_differing,
+        ),
+        reference=ReferenceCounts(passed=reference_pass, failed=reference_fail),
+        instructions=_instructions(tables),
+        cycles=cycles,
+        memory_bytes=memory,
+        traffic_bytes=traffic,
+        vus_pr=_vus(tables),
+    )
+    return summary, exactness
 
 
 def write_variant_summary(
     top: Path, data: Path, label: str, variant: ResolvedVariant, working: list[Series]
-) -> tuple[dict[str, str], Exactness]:
-    """Write a variant's `summary.csv`.
+) -> tuple[Summary, Exactness]:
+    """Write a variant's `summary.json`.
 
     Parameters
     ----------
@@ -666,18 +563,18 @@ def write_variant_summary(
 
     Returns
     -------
-    tuple[dict[str, str], Exactness]
-        The row written and the exactness it holds, whose problems and left-out series the caller reports.
+    tuple[Summary, Exactness]
+        The summary written and the exactness it holds, whose problems and left-out series the caller reports.
 
     Raises
     ------
     VariantError
-        When a file the row needs is missing or can't be read.
+        When a file the summary needs is missing or can't be read.
     """
 
     try:
-        cells, exactness = variant_cells(top, data, label, variant, working)
-        write_row(summary_path(top, label), cells)
+        summary, exactness = variant_summary(top, data, label, variant, working)
+        write_summary(summary_path(top, label), summary)
     except (OSError, ValueError, KeyError) as error:
         raise VariantError(f"cannot write {label}'s summary: {error}") from error
-    return cells, exactness
+    return summary, exactness

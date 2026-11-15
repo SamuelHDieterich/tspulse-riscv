@@ -21,7 +21,7 @@ from score.build_record import BASELINE_NAME
 from score.spike_check import _top_level
 from score.variants.building import ResolvedVariant, resolve_names
 from score.variants.listing import VariantError, read_listing
-from score.variants.merge import merge_variants, short_form, table_path
+from score.variants.merge import merge_variants, merged_path, short_form
 from score.variants.stages import RunOptions, VariantOutcome, run_variant
 from score.variants.state import SELECTION_FILE, Selection, label_folder, read_selection
 
@@ -145,7 +145,7 @@ def variants(
         bool,
         typer.Option(
             "--table-only",
-            help="Only write the merged table from what is on disk, building and running nothing.",
+            help="Only write the merged file from what is on disk, building and running nothing.",
         ),
     ] = False,
     jobs: Annotated[
@@ -192,7 +192,7 @@ def variants(
 
     Each variant's results go under its own label, its build name plus `--suffix`, in the data folder and in benchmark/results/.
     A stage that fails is logged as a problem, the variant's later stages are skipped, and the next variant starts.
-    At the end every call merges the summaries into benchmark/results/variants<suffix>.csv and prints its short form.
+    At the end every call merges the summaries into benchmark/results/variants<suffix>.json and prints its short form.
 
     Parameters
     ----------
@@ -305,10 +305,10 @@ def variants(
             if outcome.interrupted:
                 break
 
-    # Step 5: the merged table, rewritten from disk at the end of every call, also after Ctrl-C
+    # Step 5: the merged file, rewritten from disk at the end of every call, also after Ctrl-C
     try:
-        rows = merge_variants(top, resolved, suffix)
-        typer.echo(f"\nWrote {table_path(top, suffix)}\n\n{short_form(rows)}")
+        summaries = merge_variants(top, resolved, suffix)
+        typer.echo(f"\nWrote {merged_path(top, suffix)}\n\n{short_form(summaries)}")
     except VariantError as error:
         typer.echo(str(error), err=True)
         # The interruption is the call's result, whatever the merge says

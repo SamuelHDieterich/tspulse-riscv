@@ -29,7 +29,7 @@ class VariantStage(StrEnum):
     PROFILE : str
         `benchmark profile` on its default windows.
     SUMMARY : str
-        The exactness against the baseline and the label's `summary.csv`.
+        The exactness against the baseline and the label's `summary.json`.
     """
 
     BUILD = "build"

@@ -46,7 +46,7 @@ from score.variants.state import (
     write_collect_record,
     write_selection,
 )
-from score.variants.summary import write_variant_summary
+from score.variants.summary import status_text, write_variant_summary
 
 
 # ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀█░█▀█░▀█▀░█▀▀
@@ -455,9 +455,9 @@ def run_variant(
     if not ok:
         return outcome
     if written is not None:
-        cells, exactness = written
+        summary, exactness = written
         log.line(
-            f"{LINE_PREFIX}: {cells['verdict']}, {cells['windows_differing']} of {cells['windows_compared']} windows differ, status: {cells['status']}"
+            f"{LINE_PREFIX}: {summary.verdict}, {exactness.windows_differing} of {exactness.windows_compared} windows differ, status: {status_text(summary)}"
         )
         if exactness.left_out:
             log.line(

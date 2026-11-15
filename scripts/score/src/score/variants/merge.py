@@ -1,11 +1,10 @@
-"""Merge the baseline's summary and each variant's into the one variants table, and print its short form."""
+"""Merge the baseline's summary and each variant's into the one variants file, and print its short form."""
 
 # ░█░░░▀█▀░█▀▄░█▀▄░█▀█░█▀▄░▀█▀░█▀▀░█▀▀
 # ░█░░░░█░░█▀▄░█▀▄░█▀█░█▀▄░░█░░█▀▀░▀▀█
 # ░▀▀▀░▀▀▀░▀▀░░▀░▀░▀░▀░▀░▀░▀▀▀░▀▀▀░▀▀▀
 
 # Built-in
-import csv
 from pathlib import Path
 
 # Internal
@@ -14,13 +13,17 @@ from score.build_record import BASELINE_NAME
 from score.variants.building import ResolvedVariant
 from score.variants.listing import VariantError
 from score.variants.summary import (
-    COLUMNS,
-    STATUS_NOT_RUN,
-    baseline_cells,
-    read_row,
-    settings_text,
+    ENSEMBLE_HEAD,
+    baseline_summary,
+    not_run_summary,
+    status_text,
+)
+from score.variants.summary_record import (
+    Summary,
+    read_summary,
     summary_path,
-    write_row,
+    write_summaries,
+    write_summary,
 )
 
 
@@ -28,9 +31,9 @@ from score.variants.summary import (
 # ░█░░░█░█░█░█░▀▀█░░█░░█▀█░█░█░░█░░▀▀█
 # ░▀▀▀░▀▀▀░▀░▀░▀▀▀░░▀░░▀░▀░▀░▀░░▀░░▀▀▀
 
-# The merged table's name before the suffix and its extension
-TABLE_NAME = "variants"
-TABLE_EXTENSION = ".csv"
+# The merged file's name before the suffix and its extension
+MERGED_NAME = "variants"
+MERGED_EXTENSION = ".json"
 
 # What the short form shows for an empty cell
 EMPTY_CELL = "-"
@@ -51,8 +54,25 @@ SHORT_HEADER = [
 # ░▀░▀░▀▀▀░░▀░░▀░▀░▀▀▀░▀▀░░▀▀▀
 
 
-def table_path(top: Path, suffix: str) -> Path:
-    """Where the merged table sits.
+def _text(value: float | None) -> str:
+    """Spell a number for the short form.
+
+    Parameters
+    ----------
+    value : float or None
+        The number.
+
+    Returns
+    -------
+    str
+        The number in full precision, or an empty text for None.
+    """
+
+    return "" if value is None else str(value)
+
+
+def merged_path(top: Path, suffix: str) -> Path:
+    """Where the merged file sits.
 
     Parameters
     ----------
@@ -64,16 +84,16 @@ def table_path(top: Path, suffix: str) -> Path:
     Returns
     -------
     Path
-        `variants<suffix>.csv` in the tracked results folder.
+        `variants<suffix>.json` in the tracked results folder.
     """
 
-    return top / TABLES_FOLDER / f"{TABLE_NAME}{suffix}{TABLE_EXTENSION}"
+    return top / TABLES_FOLDER / f"{MERGED_NAME}{suffix}{MERGED_EXTENSION}"
 
 
 def merge_variants(
     top: Path, variants: list[ResolvedVariant], suffix: str
-) -> list[dict[str, str]]:
-    """Rebuild the baseline's summary and write the merged table.
+) -> list[Summary]:
+    """Rebuild the baseline's summary and write the merged file.
 
     Parameters
     ----------
@@ -86,8 +106,8 @@ def merge_variants(
 
     Returns
     -------
-    list[dict[str, str]]
-        The table's rows: the baseline, then each variant, which has only its name, settings and `not run` when it has no summary.
+    list[Summary]
+        The baseline's summary, then each variant's, which has only its name, settings and `not run` when it has no summary.
 
     Raises
     ------
@@ -95,64 +115,53 @@ def merge_variants(
         When a summary can't be read or the baseline's can't be computed or written.
     """
 
-    # Step 1: the baseline's row from its tracked tables, rewritten each time
+    # Step 1: the baseline's summary from its tracked tables, rewritten each time
     try:
-        baseline = baseline_cells(top)
-        write_row(summary_path(top, BASELINE_NAME), baseline)
-        rows = [baseline]
+        baseline = baseline_summary(top)
+        write_summary(summary_path(top, BASELINE_NAME), baseline)
+        summaries = [baseline]
 
         # Step 2: each variant's own summary, in list order
         for variant in variants:
-            found = read_row(summary_path(top, variant.name + suffix))
-            rows.append(
-                found
-                or {
-                    "name": variant.name,
-                    "settings": settings_text(variant),
-                    "status": STATUS_NOT_RUN,
-                }
-            )
+            found = read_summary(summary_path(top, variant.name + suffix))
+            summaries.append(found or not_run_summary(variant))
+
+        # Step 3: one list, the baseline first
+        write_summaries(merged_path(top, suffix), summaries)
     except (OSError, ValueError, KeyError) as error:
         raise VariantError(f"cannot merge the summaries: {error}") from error
-
-    # Step 3: one header, every row
-    table = table_path(top, suffix)
-    table.parent.mkdir(parents=True, exist_ok=True)
-    with table.open("w", newline="") as file:
-        writer = csv.DictWriter(file, COLUMNS, lineterminator="\n")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({column: row.get(column, "") for column in COLUMNS})
-    return [{column: row.get(column, "") for column in COLUMNS} for row in rows]
+    return summaries
 
 
-def short_form(rows: list[dict[str, str]]) -> str:
-    """Lay out the merged table's main columns for the terminal.
+def short_form(summaries: list[Summary]) -> str:
+    """Lay out the merged file's main fields for the terminal.
 
     Parameters
     ----------
-    rows : list[dict[str, str]]
-        The merged table's rows.
+    summaries : list[Summary]
+        The merged file's summaries.
 
     Returns
     -------
     str
-        A header and one line per row: name, verdict, instructions ratio, ensemble VUS-PR and its difference, and the cycle range. A variant that wasn't run shows its status instead of a verdict.
+        A header and one line per summary: name, verdict, instructions ratio, ensemble VUS-PR and its difference, and the cycle range. A label that lacks something shows what it lacks instead of a verdict.
     """
 
     lines = [SHORT_HEADER]
-    for row in rows:
-        cycles = (
-            f"{row['cycles_low']} to {row['cycles_high']}" if row["cycles_low"] else ""
-        )
+    for summary in summaries:
+        instructions = summary.instructions
+        ensemble = summary.vus_pr.get(ENSEMBLE_HEAD)
+        cycles = summary.cycles
         lines.append(
             [
-                row["name"],
-                row["verdict"] or row["status"],
-                row["instructions_ratio"],
-                row["vus_pr_ensemble"],
-                row["vus_pr_ensemble_diff"],
-                cycles,
+                summary.name,
+                status_text(summary)
+                if summary.missing or summary.verdict is None
+                else summary.verdict,
+                _text(instructions.ratio if instructions else None),
+                _text(ensemble.value if ensemble else None),
+                _text(ensemble.difference if ensemble else None),
+                f"{cycles.low} to {cycles.high}" if cycles else "",
             ]
         )
     shown = [[cell or EMPTY_CELL for cell in line] for line in lines]
