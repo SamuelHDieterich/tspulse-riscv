@@ -201,8 +201,18 @@ $(NEWLIB_OBJECTS): $(BUILD)/newlib/%.o: $(NEWLIB_SRC)/newlib/%.c
 comma := ,
 json_var = "$(subst ",\",$(subst \,\\,$($(1))))"
 
-# A comma goes before every item but the first, because make can't join a list with commas without also splitting words that hold spaces
-json_sep = $(if $(filter $(1),$(firstword $(2))),,$(comma) )
+# Nested objects and lists are laid out like Python's `json.dumps(..., indent=2)`, one item per line, so the tools' copies of the record look the same
+space := $(subst ,, )
+indent := $(space)$(space)
+define newline
+
+
+endef
+
+# `foreach` joins its results with a space, so each item opens with a marker: a space before a marker becomes the comma between items, and the first marker is dropped
+json_marker := @@
+json_item = $(json_marker)$(newline)$(indent)$(indent)
+json_body = $(if $(strip $(1)),$(subst $(json_marker),,$(subst $(space)$(json_marker),$(comma),$(1)))$(newline)$(indent))
 
 # The git fields are null outside a repository, and the dirty check leaves out the benchmark tables, which the tools write themselves
 CC_VERSION = $(shell $(CC) --version 2>/dev/null | head -n 1)
@@ -214,19 +224,19 @@ define BUILD_JSON
 {
   "name": $(call json_var,VARIANT_NAME),
   "target": $(call json_var,TARGET),
-  "settings": {$(foreach s,$(SETTINGS),$(call json_sep,$(s),$(SETTINGS))"$($(s)_NAME)": $(call json_var,$(s)))},
+  "settings": {$(call json_body,$(foreach s,$(SETTINGS),$(json_item)"$($(s)_NAME)": $(call json_var,$(s))))},
   "cc": $(call json_var,CC),
   "cc_version": $(call json_var,CC_VERSION),
   "cppflags": $(call json_var,RECORDED_CPPFLAGS),
   "cflags": $(call json_var,RECORDED_CFLAGS),
   "ldlibs": $(call json_var,RECORDED_LDLIBS),
-  "file_flags": {"$(REVIN_FILE)": $(call json_var,REVIN_FLAGS)},
-  "sources": [$(foreach f,$(PROGRAM_SOURCES),$(call json_sep,$(f),$(PROGRAM_SOURCES))"$(f)")],
-  "overrides": {$(foreach v,$(OVERRIDDEN),$(call json_sep,$(v),$(OVERRIDDEN))"$(v)": $(call json_var,$(v)))},
+  "file_flags": {$(call json_body,$(json_item)"$(REVIN_FILE)": $(call json_var,REVIN_FLAGS))},
+  "sources": [$(call json_body,$(foreach f,$(PROGRAM_SOURCES),$(json_item)"$(f)"))],
+  "overrides": {$(call json_body,$(foreach v,$(OVERRIDDEN),$(json_item)"$(v)": $(call json_var,$(v))))},
   "commit": $(if $(GIT_COMMIT),"$(GIT_COMMIT)",null),
   "tree": $(if $(GIT_TREE),"$(GIT_TREE)",null),
   "dirty": $(if $(GIT_COMMIT),$(if $(GIT_DIRTY),true,false),null),
-  "sha256": {$(foreach b,$(BINARIES),$(call json_sep,$(b),$(BINARIES))"$(notdir $(b))": "$(firstword $(shell sha256sum $(b)))")}
+  "sha256": {$(call json_body,$(foreach b,$(BINARIES),$(json_item)"$(notdir $(b))": "$(firstword $(shell sha256sum $(b)))"))}
 }
 endef
 
