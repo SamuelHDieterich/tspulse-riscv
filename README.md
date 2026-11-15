@@ -139,6 +139,85 @@ Follow a run with `tail -f "$TSPULSE_DATA/results/host-timing/<label>/<machine>.
 Results go to `$TSPULSE_DATA/results/host-timing/<label>/<machine>/`: one JSON per unit, `runs.csv` with one row per unit (for one-core C, its `cpu_seconds` is the whole run on every window, start-up included, while `timed_seconds` is T_N − T_1), and `summary.csv` with the median over repeats per series, build and setup. Both tables have a `build` column with the build's name, or `torch`, and the columns `build_commit`, `build_tree` and `build_dirty` from its `build.json`, empty for PyTorch: the commit the binary was built from, and the tree, which still names that code after a history rewrite. The summary gives seconds per window and per channel-window, Hz per channel (channel-windows per second, the readings per second one channel can take), windows per second, and each row's seconds per channel-window divided by PyTorch `b1-t1`'s and `b128-whole-pc`'s, so above 1 is slower. At the end the summary is copied to the tracked `benchmark/results/host-timing/<label>/<machine>.csv`, which holds the builds of that call only.
 A failed unit is listed as a `problem:` line, saves nothing, and makes the command exit 1 once the other units are done.
 
+### Running variants
+
+`benchmark variants` builds each variant of a list, runs it, and measures how it differs from the baseline, inside the dev shell:
+
+```bash
+benchmark variants [--only NAME] [--redo NAME] [--jobs N] [--spike-jobs N] [--suffix TEXT] [--table-only]   # the common options
+```
+
+It needs the baseline's results, in `$TSPULSE_DATA/results/benchmark/baseline/` and `benchmark/results/baseline/`.
+
+The list is `benchmark/variants.toml`, or the file given to `--list`. It holds one `[[variant]]` table per variant, whose `settings` are the same Make settings `build-variant` takes, with string values (`build-variant --list` shows them):
+
+```toml
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on" }
+```
+
+The variant's name is its build name, here `linear-blocked+unroll-on`. The baseline is never listed. A list is refused when it has no variants, an unknown setting or key, a value that is not a string, two variants with the same settings, settings that are all defaults, or two entries that build under the same name.
+
+- `--only NAME` runs only that variant, and `--redo NAME` deletes that variant's results and starts it again. Both take the build name and can be repeated.
+- `--jobs N` runs that many accuracy units at once on the host, and `--spike-jobs N` that many Spike runs at once, for the counted windows and the profile (default 1 each).
+- `--series STEM` keeps only that working series, and can be repeated. `--window-cap N` keeps the first N windows of each series' screen span. They can be combined, and both need `--suffix`.
+- `--suffix TEXT` is appended to each variant's name to make its label, so a cut-down run never writes into a full run's results. A label is the name plus the suffix, and every path below uses it. A label started with other series or another window cap is refused: use another `--suffix`, or `--redo`.
+- `--machine NAME` names this computer in each result and in the log, and defaults to the hostname. `--data` defaults to `$TSPULSE_DATA`.
+- `--table-only` builds and runs nothing and only writes the merged table from what is on disk.
+
+Each variant goes through these stages, one variant after the other:
+
+- **build**: the host and rv64 builds;
+- **reference check**: the host build on the reference windows, as in [Checking the C against PyTorch](#checking-the-c-against-pytorch). A window that differs does not stop the variant: it is counted in the summary;
+- **run**: `benchmark run` with the `screen` scope on the host and the `middle` counted windows under Spike, the same settings for every variant;
+- **collect**: `benchmark collect --against baseline`;
+- **profile**: `benchmark profile` on its default windows;
+- **summary**: compares the variant's per-window errors with the baseline's, text for text, and writes `summary.csv`.
+
+A stage that fails is logged as a `problem:` line, the variant's later stages are skipped, and the next variant starts.
+A variant whose binaries differ from the ones its label first ran is also a problem, and `--redo` starts it again.
+A `collect` that finds problems still writes its tables, and the profile and summary still run. Exactness problems are listed in the summary's `status`. Both make the command exit 1.
+
+Each variant's results go to four folders, `<label>` being its label:
+
+- `$TSPULSE_DATA/results/benchmark/<label>/`: what `benchmark run` writes, plus `reference.json`, `selection.json` (the series and window cap the label was started with), `collect.json` (how many problems the last collect found) and the log `<machine>.log`. The command's own lines in the log (a stage's start, end, skip and problems) begin with `variants:`, the stages' lines do not;
+- `$TSPULSE_DATA/results/benchmark/<label>/profile/`: the profile's raw Spike runs;
+- `benchmark/results/<label>/`: `accuracy.csv` and `instructions.csv` from `collect`, and `summary.csv`, the variant's one row;
+- `benchmark/results/<label>/profile/`: the profile tables.
+
+At the end of every call, also after Ctrl-C, the summaries are merged into `benchmark/results/variants<suffix>.csv`, and its short form is printed: each variant's name, verdict (or status when it has no summary), instruction ratio, ensemble VUS-PR and its difference from the baseline, and cycle range.
+The first row is the baseline, whose row is computed from its tracked tables, and the others follow the list's order. A variant with no `summary.csv` has only its `name`, `settings` and a `status` of `not run`.
+`--table-only` writes that table again at any time.
+
+The same command resumes: a stage whose results are already on disk is skipped, and the log says so.
+
+- `run` is skipped when every unit of the label's `selection.json` has a result.
+- `collect` is skipped when `run` was, both tables exist, and `collect.json` holds the label's current binaries and records no problem. A missing record, such as after an interrupted collect, or one with problems runs it again, so a variant with a collect problem exits 1 on every call until a collect finds none.
+- The reference check and the profile are skipped while the binaries they were made with are the ones the label has.
+- The summary is written again on every call that reaches that stage.
+
+The command exits 1 when any variant had a problem, and 3 when the list, a label's selection, or the data folder can't be used, which is checked before any variant builds. When the merge at the end fails, it exits 1 too, also with `--table-only`. After Ctrl-C or SIGTERM it stops the running stage and exits 130, and the rest waits for the next call.
+
+#### Columns
+
+`summary.csv` and the merged table have these columns:
+
+- `name` and `settings`: the variant's build name and its settings as `A=b B=c`, in the list's order. The baseline's `settings` is empty;
+- `build_commit`, `build_tree` and `build_dirty`: the commit the build was made from, its tree, and whether the tree was dirty, from the profile's `build.json`. Empty for the baseline;
+- `status`: `done` when the label holds every result, else what it lacks, joined by `; `: `reference check`, `run`, `collect`, `collect found N problems`, `profile`, `N series left out`, `N exactness problems` or `unreadable files`. A variant that has not been run shows `not run`. Empty for the baseline;
+- `verdict`: `identical` when at least one window was compared, none differs, no series was left out and the comparison had no problem. Otherwise `within-tolerance` when every reference window passed, and `beyond-tolerance` when one did not. The baseline's is `reference`;
+- `windows_compared`: the windows whose error row both the variant and the baseline hold, over the variant's selected series. `windows_differing`: those whose row differs as text. Series with missing units are left out of both and counted in `status`;
+- `reference_pass` and `reference_fail`: how many of the 7 reference windows passed and failed;
+- `instructions_u_mean` and `instructions_m_mean`: the mean of `per_channel` in `instructions.csv` over the univariate and the multivariate counted windows. The baseline's means cover only the windows the variants count;
+- `instructions_ratio`: the mean of the `ratio` column, the variant's instructions over the baseline's for the same window, over the univariate windows;
+- `cycles_low` and `cycles_high`: the cycle range of the mean window in `profile/cycles.csv`, over all classes;
+- `weights_bytes`, `text_bytes`, `static_bytes` and `stack_bytes`: the weights, the `.text` section, the sum of the static buffers and the stack's worst path, from `profile/memory.csv`;
+- `heap_bytes_per_channel`: the sum of the heap formulas of `profile/memory.csv` at one channel;
+- `traffic_bytes`: `total_bytes` of the mean window in `profile/traffic.csv`;
+- `vus_pr_<head>`, for the heads `time`, `fft`, `forecast` and `ensemble`: the mean VUS-PR over the series, in the `screen` scope, of `accuracy.csv`. `vus_pr_<head>_diff` is the mean of the `difference` from the baseline, and `vus_pr_<head>_worst` the most negative one, the series that got worst. The baseline has no difference cells.
+
+A cell is empty when it has nothing to hold: the baseline's cells that compare it with itself, or an average over no rows.
+
 ## Benchmark series
 
 `benchmark/series.csv` fixes which TSB-AD series the benchmark uses. It is generated by `select-series` and tracked:
