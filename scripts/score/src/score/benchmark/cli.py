@@ -15,6 +15,7 @@ from score.benchmark.all import run_all
 from score.benchmark.collect import collect
 from score.benchmark.run import run
 from score.profile.cli import profile
+from score.variants.cli import variants
 
 
 # ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀▀░█░█░█▀▄░█▀█░▀█▀░▀█▀░█▀█░█▀█
@@ -33,6 +34,9 @@ app.command("all", help=inspect.cleandoc(run_all.__doc__ or "").partition("\n")[
 app.command("profile", help=inspect.cleandoc(profile.__doc__ or "").partition("\n")[0])(
     profile
 )
+app.command(
+    "variants", help=inspect.cleandoc(variants.__doc__ or "").partition("\n")[0]
+)(variants)
 
 
 # ░█▄█░█▀▀░▀█▀░█░█░█▀█░█▀▄░█▀▀
