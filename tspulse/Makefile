@@ -41,11 +41,16 @@ LDLIBS := -lm
 REVIN_FILE := kernels/revin.c
 REVIN_FLAGS := -ffp-contract=off
 
-# The host build compiles newlib's erff and expf, because glibc's round differently and the host must match rv64 bit for bit
+# The host build always compiles newlib's erff and expf, because glibc's round differently and the host must match rv64 bit for bit
+# The rv64 build compiles them when a setting asks, to take fewer instructions per call than the toolchain's libm.a, which holds the same code
 # Without __OBSOLETE_MATH=0, x86 takes newlib's old code path: sf_exp.c compiles to nothing and sf_erf.o needs __ieee754_expf
 # Only the machine/ folder is added to the include path, since newlib's whole libc/include would replace glibc's math.h
+# rv64 gets the same flags, which change nothing there: that machine/ieeefp.h is byte-identical to the cross toolchain's, and rv64gc already defaults to __OBSOLETE_MATH=0
 NEWLIB_FILES := libm/math/sf_erf.c libm/common/sf_exp.c libm/common/sf_exp2_data.c libm/common/math_errf.c libm/common/math_err.c
 NEWLIB_FLAGS = -D__OBSOLETE_MATH=0 -I$(NEWLIB_HOST_INCLUDE) -I$(NEWLIB_SRC)/newlib/libm/common
+
+# Non-empty when this build compiles newlib's math: always on the host, and on rv64 when a setting asks
+NEWLIB_LINKED := $(strip $(filter host,$(TARGET)) $(VARIANT_NEWLIB))
 
 # ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
 # ░▀▀█░█░█░█░█░█▀▄░█░░░█▀▀░▀▀█
@@ -67,9 +72,10 @@ PROFILE_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/profile/%.o) $(BUILD)/profile/
 # The stack build is the clean program's objects with the call graph written beside them, so the frame sizes are those of the real build
 STACK_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/stack/%.o)
 
-ifeq ($(TARGET),host)
+ifneq ($(NEWLIB_LINKED),)
 NEWLIB_OBJECTS := $(NEWLIB_FILES:%.c=$(BUILD)/newlib/%.o)
-else
+endif
+ifneq ($(TARGET),host)
 # Under pk the program carries its own _open, because pk reads open flags as Linux numbers
 PLATFORM_OBJECTS := $(BUILD)/io/pk_open.o
 endif
@@ -105,7 +111,7 @@ SAFETENSORS_PREREQ := $(subst $(space),\ ,$(SAFETENSORS))
 GENERATOR := $(shell command -v export-weights)
 $(if $(GENERATOR),,$(error export-weights not found; run make inside nix develop))
 
-ifeq ($(TARGET),host)
+ifneq ($(NEWLIB_LINKED),)
 $(if $(NEWLIB_SRC),,$(error NEWLIB_SRC is not set; run make inside nix develop))
 $(if $(NEWLIB_HOST_INCLUDE),,$(error NEWLIB_HOST_INCLUDE is not set; run make inside nix develop))
 endif

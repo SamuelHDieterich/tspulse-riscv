@@ -11,13 +11,14 @@
 #   S_DEFINES_V   -D macros for V
 #   S_FLAGS_V     compiler flags for V, on both targets, so the host build keeps matching rv64 bit for bit
 #   S_HOST_FLAGS_V, S_RV64_FLAGS_V   compiler flags for V on one target
+#   S_NEWLIB_V    yes when V compiles newlib's math source into the rv64 program too, as the host build always does
 
 # ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀▀
 # ░█░░░█░█░█░█░█▀▀░░█░░█░█
 # ░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀
 
 # Listed in the order they appear in a build's name
-SETTINGS := LINEAR UNROLL
+SETTINGS := LINEAR UNROLL MATH
 
 # The blocked kernel keeps each output's sum in the plain loop's order, so the result stays exact
 LINEAR ?= plain
@@ -33,6 +34,13 @@ UNROLL_NAME := unroll
 UNROLL_DEFAULT := off
 UNROLL_VALUES := off on
 UNROLL_FLAGS_on := -funroll-loops
+
+# The same newlib source as the toolchain's libm.a, compiled with the program's flags, so it returns the same results in fewer instructions per call
+MATH ?= libm
+MATH_NAME := math
+MATH_DEFAULT := libm
+MATH_VALUES := libm bundled
+MATH_NEWLIB_bundled := yes
 
 # ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
 # ░▀▀█░█░█░█░█░█▀▄░█░░░█▀▀░▀▀█
@@ -55,6 +63,9 @@ VARIANT_SOURCES := $(foreach s,$(VARIANT_REPLACING),$($(s)_SOURCES_$($(s))))
 
 # The program's file list for this build, given the baseline's
 variant_sources = $(filter-out $(VARIANT_REPLACED),$(1)) $(VARIANT_SOURCES)
+
+# Any setting whose value asks for newlib's math makes the rv64 build compile it
+VARIANT_NEWLIB := $(strip $(foreach s,$(SETTINGS),$($(s)_NEWLIB_$($(s)))))
 
 VARIANT_DEFINES := $(foreach s,$(SETTINGS),$($(s)_DEFINES_$($(s))))
 

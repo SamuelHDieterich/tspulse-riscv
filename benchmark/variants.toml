@@ -10,3 +10,9 @@ settings = { LINEAR = "blocked" }
 
 [[variant]]
 settings = { LINEAR = "blocked", UNROLL = "on" }
+
+[[variant]]
+settings = { MATH = "bundled" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled" }
