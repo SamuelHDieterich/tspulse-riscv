@@ -5,8 +5,8 @@
     "UNROLL": "on"
   },
   "build": {
-    "commit": "b00eb2b356fd9109429dca9f6fa472033c43180d",
-    "tree": "6d48e70b4b1375933d8ca94ab472c534142dc188",
+    "commit": "d14e8d90c09a0174da3a7db6ad69f66c5dc313db",
+    "tree": "3b1653b50f586a372f455b18efc2f84ea5c189fd",
     "dirty": false
   },
   "verdict": "identical",
@@ -19,22 +19,22 @@
     "fail": 0
   },
   "instructions": {
-    "u_mean": 1020660666.6458334,
-    "m_mean": 1015765171.5677778,
-    "ratio": 0.4202532296779123
+    "u_mean": 1014115826.6458334,
+    "m_mean": 1009220330.1982828,
+    "ratio": 0.4188016487405494
   },
   "cycles": {
-    "low": 1030359988,
-    "high": 2587634332
+    "low": 1023815146,
+    "high": 2579075140
   },
   "memory_bytes": {
     "weights": 4045272,
-    "text": 70370,
+    "text": 72994,
     "static": 224112,
-    "stack": 896,
+    "stack": 912,
     "heap_per_channel": 4128
   },
-  "traffic_bytes": 352742741,
+  "traffic_bytes": 353010133,
   "vus_pr": {
     "time": {
       "value": 0.46455526481416265,

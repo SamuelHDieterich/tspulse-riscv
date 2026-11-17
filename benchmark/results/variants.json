@@ -3,21 +3,21 @@
     "name": "baseline",
     "verdict": "reference",
     "instructions": {
-      "u_mean": 2428678476.6458335,
-      "m_mean": 2423790016.6633334
+      "u_mean": 2421468809.6458335,
+      "m_mean": 2416580348.2938385
     },
     "cycles": {
-      "low": 2438388066,
-      "high": 4509504869
+      "low": 2431178399,
+      "high": 4500410582
     },
     "memory_bytes": {
       "weights": 4045272,
-      "text": 59070,
+      "text": 62814,
       "static": 224112,
       "stack": 800,
       "heap_per_channel": 4128
     },
-    "traffic_bytes": 1049843221,
+    "traffic_bytes": 1049357376,
     "vus_pr": {
       "time": {
         "value": 0.46455526481416265
@@ -39,8 +39,8 @@
       "UNROLL": "on"
     },
     "build": {
-      "commit": "b00eb2b356fd9109429dca9f6fa472033c43180d",
-      "tree": "6d48e70b4b1375933d8ca94ab472c534142dc188",
+      "commit": "d14e8d90c09a0174da3a7db6ad69f66c5dc313db",
+      "tree": "3b1653b50f586a372f455b18efc2f84ea5c189fd",
       "dirty": false
     },
     "verdict": "identical",
@@ -53,22 +53,22 @@
       "fail": 0
     },
     "instructions": {
-      "u_mean": 1533171639.6458333,
-      "m_mean": 1528276144.5677776,
-      "ratio": 0.6312779619228692
+      "u_mean": 1526881051.6458333,
+      "m_mean": 1521985556.5677776,
+      "ratio": 0.6305596845375867
     },
     "cycles": {
-      "low": 1542870961,
-      "high": 3615487754
+      "low": 1536580373,
+      "high": 3607312641
     },
     "memory_bytes": {
       "weights": 4045272,
-      "text": 68458,
+      "text": 71006,
       "static": 224112,
       "stack": 800,
       "heap_per_channel": 4128
     },
-    "traffic_bytes": 1049393856,
+    "traffic_bytes": 1049721088,
     "vus_pr": {
       "time": {
         "value": 0.46455526481416265,
@@ -98,8 +98,8 @@
       "LINEAR": "blocked"
     },
     "build": {
-      "commit": "b00eb2b356fd9109429dca9f6fa472033c43180d",
-      "tree": "6d48e70b4b1375933d8ca94ab472c534142dc188",
+      "commit": "d14e8d90c09a0174da3a7db6ad69f66c5dc313db",
+      "tree": "3b1653b50f586a372f455b18efc2f84ea5c189fd",
       "dirty": false
     },
     "verdict": "identical",
@@ -112,22 +112,22 @@
       "fail": 0
     },
     "instructions": {
-      "u_mean": 1066404483.6458334,
-      "m_mean": 1061516023.6633333,
-      "ratio": 0.4390880980862562
+      "u_mean": 1059026272.6458334,
+      "m_mean": 1054134294.4308081,
+      "ratio": 0.43734843656479966
     },
     "cycles": {
-      "low": 1076114073,
-      "high": 2631404295
+      "low": 1068730726,
+      "high": 2622075511
     },
     "memory_bytes": {
       "weights": 4045272,
-      "text": 60094,
+      "text": 63922,
       "static": 224112,
-      "stack": 848,
+      "stack": 864,
       "heap_per_channel": 4128
     },
-    "traffic_bytes": 352873600,
+    "traffic_bytes": 353175467,
     "vus_pr": {
       "time": {
         "value": 0.46455526481416265,
@@ -158,8 +158,8 @@
       "UNROLL": "on"
     },
     "build": {
-      "commit": "b00eb2b356fd9109429dca9f6fa472033c43180d",
-      "tree": "6d48e70b4b1375933d8ca94ab472c534142dc188",
+      "commit": "d14e8d90c09a0174da3a7db6ad69f66c5dc313db",
+      "tree": "3b1653b50f586a372f455b18efc2f84ea5c189fd",
       "dirty": false
     },
     "verdict": "identical",
@@ -172,22 +172,142 @@
       "fail": 0
     },
     "instructions": {
-      "u_mean": 1020660666.6458334,
-      "m_mean": 1015765171.5677778,
-      "ratio": 0.4202532296779123
+      "u_mean": 1014115826.6458334,
+      "m_mean": 1009220330.1982828,
+      "ratio": 0.4188016487405494
     },
     "cycles": {
-      "low": 1030359988,
-      "high": 2587634332
+      "low": 1023815146,
+      "high": 2579075140
     },
     "memory_bytes": {
       "weights": 4045272,
-      "text": 70370,
+      "text": 72994,
       "static": 224112,
-      "stack": 896,
+      "stack": 912,
       "heap_per_channel": 4128
     },
-    "traffic_bytes": 352742741,
+    "traffic_bytes": 353010133,
+    "vus_pr": {
+      "time": {
+        "value": 0.46455526481416265,
+        "difference": 0.0,
+        "worst": 0.0
+      },
+      "fft": {
+        "value": 0.45018826133056616,
+        "difference": 0.0,
+        "worst": 0.0
+      },
+      "forecast": {
+        "value": 0.37188642149722634,
+        "difference": 0.0,
+        "worst": 0.0
+      },
+      "ensemble": {
+        "value": 0.49783069296433946,
+        "difference": 0.0,
+        "worst": 0.0
+      }
+    }
+  },
+  {
+    "name": "math-bundled",
+    "settings": {
+      "MATH": "bundled"
+    },
+    "build": {
+      "commit": "d14e8d90c09a0174da3a7db6ad69f66c5dc313db",
+      "tree": "3b1653b50f586a372f455b18efc2f84ea5c189fd",
+      "dirty": false
+    },
+    "verdict": "identical",
+    "exactness": {
+      "windows_compared": 200641,
+      "windows_differing": 0
+    },
+    "reference": {
+      "pass": 7,
+      "fail": 0
+    },
+    "instructions": {
+      "u_mean": 2395730966.1875,
+      "m_mean": 2390955543.2489896,
+      "ratio": 0.9893710309687266
+    },
+    "cycles": {
+      "low": 2405393933,
+      "high": 4470154233
+    },
+    "memory_bytes": {
+      "weights": 4045272,
+      "text": 62614,
+      "static": 224112,
+      "stack": 768,
+      "heap_per_channel": 4128
+    },
+    "traffic_bytes": 1049649771,
+    "vus_pr": {
+      "time": {
+        "value": 0.46455526481416265,
+        "difference": 0.0,
+        "worst": 0.0
+      },
+      "fft": {
+        "value": 0.45018826133056616,
+        "difference": 0.0,
+        "worst": 0.0
+      },
+      "forecast": {
+        "value": 0.37188642149722634,
+        "difference": 0.0,
+        "worst": 0.0
+      },
+      "ensemble": {
+        "value": 0.49783069296433946,
+        "difference": 0.0,
+        "worst": 0.0
+      }
+    }
+  },
+  {
+    "name": "linear-blocked+unroll-on+math-bundled",
+    "settings": {
+      "LINEAR": "blocked",
+      "UNROLL": "on",
+      "MATH": "bundled"
+    },
+    "build": {
+      "commit": "d14e8d90c09a0174da3a7db6ad69f66c5dc313db",
+      "tree": "3b1653b50f586a372f455b18efc2f84ea5c189fd",
+      "dirty": false
+    },
+    "verdict": "identical",
+    "exactness": {
+      "windows_compared": 200641,
+      "windows_differing": 0
+    },
+    "reference": {
+      "pass": 7,
+      "fail": 0
+    },
+    "instructions": {
+      "u_mean": 986047556.6875,
+      "m_mean": 981294773.0425758,
+      "ratio": 0.4072102872354609
+    },
+    "cycles": {
+      "low": 995668682,
+      "high": 2541732819
+    },
+    "memory_bytes": {
+      "weights": 4045272,
+      "text": 72814,
+      "static": 224112,
+      "stack": 912,
+      "heap_per_channel": 4128
+    },
+    "traffic_bytes": 353045845,
     "vus_pr": {
       "time": {
         "value": 0.46455526481416265,

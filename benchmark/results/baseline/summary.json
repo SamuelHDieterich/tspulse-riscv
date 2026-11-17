@@ -2,21 +2,21 @@
   "name": "baseline",
   "verdict": "reference",
   "instructions": {
-    "u_mean": 2428678476.6458335,
-    "m_mean": 2423790016.6633334
+    "u_mean": 2421468809.6458335,
+    "m_mean": 2416580348.2938385
   },
   "cycles": {
-    "low": 2438388066,
-    "high": 4509504869
+    "low": 2431178399,
+    "high": 4500410582
   },
   "memory_bytes": {
     "weights": 4045272,
-    "text": 59070,
+    "text": 62814,
     "static": 224112,
     "stack": 800,
     "heap_per_channel": 4128
   },
-  "traffic_bytes": 1049843221,
+  "traffic_bytes": 1049357376,
   "vus_pr": {
     "time": {
       "value": 0.46455526481416265

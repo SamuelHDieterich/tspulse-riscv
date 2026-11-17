@@ -1,0 +1,50 @@
+{
+  "name": "linear-blocked+unroll-on+math-bundled",
+  "target": "rv64",
+  "settings": {
+    "linear": "blocked",
+    "unroll": "on",
+    "math": "bundled"
+  },
+  "cc": "riscv64-none-elf-gcc",
+  "cc_version": "riscv64-none-elf-gcc (GCC) 16.2.0",
+  "cppflags": "-MMD -MP",
+  "cflags": "-march=rv64gc -mabi=lp64d -O3 -Wall -Wextra -funroll-loops",
+  "ldlibs": "-lm",
+  "file_flags": {
+    "kernels/revin.c": "-ffp-contract=off"
+  },
+  "sources": [
+    "tspulse.c",
+    "io/rows.c",
+    "model/history.c",
+    "model/pass.c",
+    "model/window.c",
+    "kernels/add.c",
+    "kernels/fft.c",
+    "kernels/gelu.c",
+    "kernels/layer_norm.c",
+    "kernels/multiply.c",
+    "kernels/revin.c",
+    "kernels/softmax.c",
+    "kernels/sum.c",
+    "kernels/transpose.c",
+    "modules/backbone.c",
+    "modules/block.c",
+    "modules/decoder.c",
+    "modules/embedding.c",
+    "modules/heads.c",
+    "modules/mixer.c",
+    "kernels/linear/blocked.c"
+  ],
+  "overrides": {},
+  "commit": "d14e8d90c09a0174da3a7db6ad69f66c5dc313db",
+  "tree": "3b1653b50f586a372f455b18efc2f84ea5c189fd",
+  "dirty": false,
+  "sha256": {
+    "tspulse": "b41bddfa0c9281463c60e06c74ddbee5f0bf324ed0b3b61db1a3015ea0c6ab4a",
+    "tspulse-dump": "904218e3a63023c1c37ffc4af2f5c06acc3fdb2574c4f1610aa919fe44788279",
+    "tspulse-profile": "c67baff2e5887ecad30fbfa164827b25d5c13a06fee408fa1ea56e6b4ef0630b",
+    "check-weights": "f7c14c914a8fcea61816780ab259e5cf584edfff408b299971ea013b7653af65"
+  }
+}

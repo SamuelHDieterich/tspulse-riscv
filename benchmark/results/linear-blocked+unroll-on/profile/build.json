@@ -3,12 +3,13 @@
   "target": "rv64",
   "settings": {
     "linear": "blocked",
-    "unroll": "on"
+    "unroll": "on",
+    "math": "libm"
   },
   "cc": "riscv64-none-elf-gcc",
   "cc_version": "riscv64-none-elf-gcc (GCC) 16.2.0",
   "cppflags": "-MMD -MP",
-  "cflags": "-march=rv64gc -mabi=lp64d -O2 -Wall -Wextra -funroll-loops",
+  "cflags": "-march=rv64gc -mabi=lp64d -O3 -Wall -Wextra -funroll-loops",
   "ldlibs": "-lm",
   "file_flags": {
     "kernels/revin.c": "-ffp-contract=off"
@@ -37,13 +38,13 @@
     "kernels/linear/blocked.c"
   ],
   "overrides": {},
-  "commit": "b00eb2b356fd9109429dca9f6fa472033c43180d",
-  "tree": "6d48e70b4b1375933d8ca94ab472c534142dc188",
+  "commit": "d14e8d90c09a0174da3a7db6ad69f66c5dc313db",
+  "tree": "3b1653b50f586a372f455b18efc2f84ea5c189fd",
   "dirty": false,
   "sha256": {
-    "tspulse": "206fc00e23b4bc8e34f3dd0fc54e800ab68a13c8269bc5b8e6404528a1ea6aa1",
-    "tspulse-dump": "1250919c5fac38524b0b072be407e92329d586f97afc5f1e4e551efc945fe815",
-    "tspulse-profile": "007c48e60a329ac7792e197be307752cc60884b0653ba498c7fb40a9ee9d8c66",
+    "tspulse": "112ad1453c19ce48a48600b82668210970972595839b313c2907be61345fc9b0",
+    "tspulse-dump": "fb3cff05d34e1625a43bec035a0b939e7d218d5a52f805836148946181f90cce",
+    "tspulse-profile": "a3069ee7e7ff3119ce88dae20d0e68a3f0345158578a48bba135e13f5a949f1b",
     "check-weights": "f7c14c914a8fcea61816780ab259e5cf584edfff408b299971ea013b7653af65"
   }
 }

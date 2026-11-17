@@ -1,7 +1,7 @@
 kind,item,bytes,formula,source
 weights,weights,4045272,,size of the weights symbol in .rodata
-code,.text,68458,,section size
-code,functions the windows ran,35088,,symbol sizes of the 60 functions the histograms saw
+code,.text,71006,,section size
+code,functions the windows ran,37504,,symbol sizes of the 59 functions the histograms saw
 static,.bss,217416,,section size
 static,.sbss,128,,section size
 static,.data,2856,,section size

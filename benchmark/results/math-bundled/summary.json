@@ -1,0 +1,59 @@
+{
+  "name": "math-bundled",
+  "settings": {
+    "MATH": "bundled"
+  },
+  "build": {
+    "commit": "d14e8d90c09a0174da3a7db6ad69f66c5dc313db",
+    "tree": "3b1653b50f586a372f455b18efc2f84ea5c189fd",
+    "dirty": false
+  },
+  "verdict": "identical",
+  "exactness": {
+    "windows_compared": 200641,
+    "windows_differing": 0
+  },
+  "reference": {
+    "pass": 7,
+    "fail": 0
+  },
+  "instructions": {
+    "u_mean": 2395730966.1875,
+    "m_mean": 2390955543.2489896,
+    "ratio": 0.9893710309687266
+  },
+  "cycles": {
+    "low": 2405393933,
+    "high": 4470154233
+  },
+  "memory_bytes": {
+    "weights": 4045272,
+    "text": 62614,
+    "static": 224112,
+    "stack": 768,
+    "heap_per_channel": 4128
+  },
+  "traffic_bytes": 1049649771,
+  "vus_pr": {
+    "time": {
+      "value": 0.46455526481416265,
+      "difference": 0.0,
+      "worst": 0.0
+    },
+    "fft": {
+      "value": 0.45018826133056616,
+      "difference": 0.0,
+      "worst": 0.0
+    },
+    "forecast": {
+      "value": 0.37188642149722634,
+      "difference": 0.0,
+      "worst": 0.0
+    },
+    "ensemble": {
+      "value": 0.49783069296433946,
+      "difference": 0.0,
+      "worst": 0.0
+    }
+  }
+}

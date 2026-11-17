@@ -1,0 +1,50 @@
+{
+  "name": "baseline",
+  "target": "rv64",
+  "settings": {
+    "linear": "plain",
+    "unroll": "off",
+    "math": "libm"
+  },
+  "cc": "riscv64-none-elf-gcc",
+  "cc_version": "riscv64-none-elf-gcc (GCC) 16.2.0",
+  "cppflags": "-MMD -MP",
+  "cflags": "-march=rv64gc -mabi=lp64d -O3 -Wall -Wextra",
+  "ldlibs": "-lm",
+  "file_flags": {
+    "kernels/revin.c": "-ffp-contract=off"
+  },
+  "sources": [
+    "tspulse.c",
+    "io/rows.c",
+    "model/history.c",
+    "model/pass.c",
+    "model/window.c",
+    "kernels/add.c",
+    "kernels/fft.c",
+    "kernels/gelu.c",
+    "kernels/layer_norm.c",
+    "kernels/linear/plain.c",
+    "kernels/multiply.c",
+    "kernels/revin.c",
+    "kernels/softmax.c",
+    "kernels/sum.c",
+    "kernels/transpose.c",
+    "modules/backbone.c",
+    "modules/block.c",
+    "modules/decoder.c",
+    "modules/embedding.c",
+    "modules/heads.c",
+    "modules/mixer.c"
+  ],
+  "overrides": {},
+  "commit": "d14e8d90c09a0174da3a7db6ad69f66c5dc313db",
+  "tree": "3b1653b50f586a372f455b18efc2f84ea5c189fd",
+  "dirty": false,
+  "sha256": {
+    "tspulse": "93d706eeecb4a6e3d73b7c0ec333cdaf3e1159e774f638ad4e69661d2b7df501",
+    "tspulse-dump": "26da6c5fac3d0d8d2e34f83601b8acf0ae7785c5df17cb6a4f6d83114be5c667",
+    "tspulse-profile": "66c00d127421d17bbc5557f0459a1a565854bc071a5dc9dd047a552437cc9db7",
+    "check-weights": "173e5bb88d970761465ef3c7fe256f033d49849ab4417a45e1e9f02e02fe066d"
+  }
+}
