@@ -122,6 +122,22 @@ void reconstruction_head(
     );
 }
 
+#ifdef TSPULSE_OUTPUTS_READ
+void reconstruction_head_patch(
+    const struct reconstruction_head *weights,
+    const float patches[NUM_PATCHES * D_MODEL],
+    int patch,
+    float series[CONTEXT_LENGTH]
+) {
+    linear(
+        patches + patch * D_MODEL,
+        &weights->base_reconstruction_block.weight[0][0],
+        weights->base_reconstruction_block.bias, series + patch * PATCH_LENGTH,
+        1, D_MODEL, PATCH_LENGTH
+    );
+}
+#endif
+
 void fft_reconstruction(
     const float fft_output[CONTEXT_LENGTH],
     float base_component,

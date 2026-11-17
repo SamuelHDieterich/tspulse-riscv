@@ -52,6 +52,23 @@ void reconstruction_head(
     float series[CONTEXT_LENGTH]
 );
 
+#ifdef TSPULSE_OUTPUTS_READ
+/**
+ * `reconstruction_head` on one patch: its 24 features to its 8 values.
+ *
+ * @param weights The head's weights.
+ * @param patches 64 rows of 24 values, of which only row `patch` is read.
+ * @param patch Which row to run on, from 0 to 63.
+ * @param series 512 values, of which only the 8 of row `patch` are written.
+ */
+void reconstruction_head_patch(
+    const struct reconstruction_head *weights,
+    const float patches[NUM_PATCHES * D_MODEL],
+    int patch,
+    float series[CONTEXT_LENGTH]
+);
+#endif
+
 /**
  * The series behind the FFT head's output: the bins scaled back by the maxima, the base component appended as bin 256, and the inverse DFT.
  *

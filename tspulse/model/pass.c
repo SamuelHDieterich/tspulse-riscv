@@ -24,6 +24,11 @@
 // ░█░░░█░█░█░█░▀▀█░░█░░█▀█░█░█░░█░░▀▀█
 // ░▀▀▀░▀▀▀░▀░▀░▀▀▀░░▀░░▀░▀░▀░▀░░▀░░▀▀▀
 
+// The dump build keeps every row, since the PyTorch check compares whole records
+#if defined(TSPULSE_OUTPUTS_READ) && !defined(TSPULSE_DUMP)
+#define SKIP_UNREAD_ROWS
+#endif
+
 /// Rows of a per-channel statistic such as `loc`.
 #define STATISTIC_ROWS 1
 
@@ -35,6 +40,18 @@
 
 /// Where the register tokens start: the last 10 rows.
 #define REGISTER_ROWS_OFFSET (ENCODED_PATCHES * D_MODEL)
+
+/// The decoder's time row for the first hidden patch: the patch that holds series row `FIRST_HIDDEN_ROW`, where the scored rows start.
+#define FIRST_HIDDEN_TIME_ROW (FIRST_HIDDEN_ROW / PATCH_LENGTH)
+
+/// Where the FFT rows start, as a row index.
+#define FFT_FIRST_ROW NUM_PATCHES
+
+/// FFT rows a hidden pass reads: all of them, since the inverse FFT needs every bin.
+#define FFT_ROW_COUNT NUM_PATCHES
+
+/// The most runs of rows a pass reads: a hidden pass reads one time row and the FFT rows.
+#define MAX_READ_SPANS 2
 
 // ░█▀▀░█░█░█▀█░█▀▀░▀█▀░▀█▀░█▀█░█▀█░█▀▀
 // ░█▀▀░█░█░█░█░█░░░░█░░░█░░█░█░█░█░▀▀█
@@ -84,6 +101,8 @@ static void forecast_head(
 /**
  * A hidden pass's heads: the time reconstruction and the reconstruction through the FFT, then both back to the series' units.
  *
+ * `time_patch` exists only when rows are skipped: even an unused parameter changes the default build's register allocation, and the benchmark keeps a finished result only while its binary's hash stays the same.
+ *
  * @param weights The model's weights.
  * @param decoded The decoder's output, 138 rows of 24 values.
  * @param model The backbone's output, for the FFT maxima and RevIN's statistics.
@@ -91,6 +110,7 @@ static void forecast_head(
  * @param fft_output Receives the FFT head's own output, the normalized bins.
  * @param scaled_time Receives the time reconstruction before the inverse RevIN.
  * @param scaled_fft Receives the reconstruction through the FFT before the inverse RevIN.
+ * @param time_patch The decoder's time row the pass reads, which is the only patch of `scaled_time` that is computed when rows are skipped.
  */
 static void reconstruction_heads(
     const struct tspulse_weights *weights,
@@ -100,6 +120,10 @@ static void reconstruction_heads(
     float fft_output[CONTEXT_LENGTH],
     float scaled_time[CONTEXT_LENGTH],
     float scaled_fft[CONTEXT_LENGTH]
+#ifdef SKIP_UNREAD_ROWS
+    ,
+    int time_patch
+#endif
 ) {
     const float affine_weight = weights->backbone.scaler.affine_weight[0][0][0];
     const float affine_bias = weights->backbone.scaler.affine_bias[0][0][0];
@@ -112,10 +136,17 @@ static void reconstruction_heads(
     );
     DUMP_POP();
     DUMP_PUSH("time_head");
+#ifdef SKIP_UNREAD_ROWS
+    reconstruction_head_patch(
+        &weights->decoder_with_head.time_head, decoded + TIME_ROWS_OFFSET,
+        time_patch, scaled_time
+    );
+#else
     reconstruction_head(
         &weights->decoder_with_head.time_head, decoded + TIME_ROWS_OFFSET,
         scaled_time
     );
+#endif
     DUMP_POP();
     DUMP(
         "reconstruction_outputs", scaled_time, SERIES_NDIM,
@@ -170,7 +201,28 @@ void pass(
     memcpy(decoded, model.last_hidden_state, sizeof(decoded));
     DUMP_PUSH("decoder_with_head");
     DUMP_PUSH("decoder");
+#ifdef SKIP_UNREAD_ROWS
+    // The plain pass has no hidden patch and never reads this
+    int time_patch = FIRST_HIDDEN_TIME_ROW + hidden_patch;
+
+    // Each pass reads only some of the decoder's rows, and the last feature mixer works on each row alone
+    struct row_span spans[MAX_READ_SPANS];
+    int span_count;
+    if (plain) {
+        spans[0] = (struct row_span){ENCODED_PATCHES, REGISTER_TOKENS};
+        span_count = 1;
+    } else {
+        spans[0] = (struct row_span){time_patch, 1};
+        spans[1] = (struct row_span){FFT_FIRST_ROW, FFT_ROW_COUNT};
+        span_count = 2;
+    }
+    decoder_spans(
+        weights->decoder_with_head.decoder.decoder_block.mixers, decoded, spans,
+        span_count
+    );
+#else
     decoder(weights->decoder_with_head.decoder.decoder_block.mixers, decoded);
+#endif
     DUMP_POP();
 
     // Step 3: only the heads this copy's error reads. The baseline skips the rest, and so does this pass
@@ -182,6 +234,10 @@ void pass(
         reconstruction_heads(
             weights, decoded, &model, output, fft_output, scaled_time,
             scaled_fft
+#ifdef SKIP_UNREAD_ROWS
+            ,
+            time_patch
+#endif
         );
     }
 

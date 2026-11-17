@@ -342,3 +342,24 @@ void mixer_layer_138(const struct mixer_layer_138 *weights, float *hidden) {
         CHANNEL_FIRST
     );
 }
+
+#ifdef TSPULSE_OUTPUTS_READ
+void mixer_layer_138_spans(
+    const struct mixer_layer_138 *weights,
+    float *hidden,
+    const struct row_span *spans,
+    int span_count
+) {
+    DUMP_PUSH("patch_mixer");
+    patch_mixer_138(&weights->patch_mixer, hidden);
+    DUMP_POP();
+    DUMP_PUSH("feature_mixer");
+    for (int i = 0; i < span_count; i++) {
+        feature_mixer(
+            &weights->feature_mixer, hidden + spans[i].first * D_MODEL,
+            spans[i].count
+        );
+    }
+    DUMP_POP();
+}
+#endif

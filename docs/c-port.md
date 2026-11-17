@@ -33,6 +33,7 @@ The generated files are rebuilt only when the safetensors file or `export-weight
 - `tspulse` is the one to measure. It carries no dump code.
 - `tspulse-dump` is built with the macro `TSPULSE_DUMP`, which turns on `--dump-window` and `--dump`: they write every module's output for one window to a `.tdump`. The two write bit-identical errors.
 - `tspulse-profile`, built only by `make TARGET=rv64`, is built with the macro `TSPULSE_PROFILE`, which turns on `--profile PATH`: it writes the instructions each module took in each window to a CSV. The three write bit-identical errors.
+- With `OUTPUTS=read`, the dump build still computes every row, so `check-model` checks the model but not the code that skips rows, which the variant's errors comparison covers.
 
 `make TARGET=rv64` also compiles the program's objects once more with GCC's call-graph output, in `build/rv64/stack/`, which `benchmark profile` reads for the stack's frame sizes.
 

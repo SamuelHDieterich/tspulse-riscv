@@ -18,7 +18,7 @@
 # ░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀
 
 # Listed in the order they appear in a build's name
-SETTINGS := LINEAR UNROLL MATH
+SETTINGS := LINEAR UNROLL MATH OUTPUTS
 
 # The blocked kernel keeps each output's sum in the plain loop's order, so the result stays exact
 LINEAR ?= plain
@@ -41,6 +41,13 @@ MATH_NAME := math
 MATH_DEFAULT := libm
 MATH_VALUES := libm bundled
 MATH_NEWLIB_bundled := yes
+
+# Unread rows are never computed and the read rows run the same code, so the result stays exact
+OUTPUTS ?= all
+OUTPUTS_NAME := outputs
+OUTPUTS_DEFAULT := all
+OUTPUTS_VALUES := all read
+OUTPUTS_DEFINES_read := -DTSPULSE_OUTPUTS_READ
 
 # ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
 # ░▀▀█░█░█░█░█░█▀▄░█░░░█▀▀░▀▀█

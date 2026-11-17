@@ -13,6 +13,20 @@
 // Internal
 #include "weights/types.h"
 
+#ifdef TSPULSE_OUTPUTS_READ
+
+// ░▀█▀░█░█░█▀█░█▀▀░█▀▀
+// ░░█░░░█░░█▀▀░█▀▀░▀▀█
+// ░░▀░░░▀░░▀░░░▀▀▀░▀▀▀
+
+/// A run of consecutive rows of the hidden state.
+struct row_span {
+    int first; ///< Index of the run's first row.
+    int count; ///< Rows in the run.
+};
+
+#endif
+
 // ░█▀▀░█░█░█▀█░█▀▀░▀█▀░▀█▀░█▀█░█▀█░█▀▀
 // ░█▀▀░█░█░█░█░█░░░░█░░░█░░█░█░█░█░▀▀█
 // ░▀░░░▀▀▀░▀░▀░▀▀▀░░▀░░▀▀▀░▀▀▀░▀░▀░▀▀▀
@@ -128,5 +142,25 @@ void mixer_layer_10(const struct mixer_layer_10 *weights, float *hidden);
  * @param hidden The hidden state, 138 rows of 24 values, updated in place.
  */
 void mixer_layer_138(const struct mixer_layer_138 *weights, float *hidden);
+
+#ifdef TSPULSE_OUTPUTS_READ
+/**
+ * `TSPulseLayer` over 138 patches, with the feature mixer run only on the given rows.
+ *
+ * The feature mixer treats every row on its own, so a row it runs on gets the value `mixer_layer_138` gives it.
+ * The patch mixer still runs over all rows, since it mixes them.
+ *
+ * @param weights The layer's weights.
+ * @param hidden The hidden state, 138 rows of 24 values, updated in place. Rows outside the spans keep the patch mixer's output.
+ * @param spans The runs of rows the feature mixer runs on.
+ * @param span_count Runs in `spans`.
+ */
+void mixer_layer_138_spans(
+    const struct mixer_layer_138 *weights,
+    float *hidden,
+    const struct row_span *spans,
+    int span_count
+);
+#endif
 
 #endif

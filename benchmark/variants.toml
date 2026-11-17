@@ -16,3 +16,9 @@ settings = { MATH = "bundled" }
 
 [[variant]]
 settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled" }
+
+[[variant]]
+settings = { OUTPUTS = "read" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read" }

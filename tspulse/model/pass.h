@@ -16,7 +16,7 @@
 
 /// What one pass yields toward the window's errors, in the series' standardized units.
 struct pass_output {
-    /// The time head's reconstruction, filled by the hidden passes only.
+    /// The time head's reconstruction, filled by the hidden passes only. With `OUTPUTS=read`, outside the dump build, only the hidden patch's 8 values are current; the rest is stale but finite, and the errors read only the hidden patch.
     float reconstruction[CONTEXT_LENGTH];
     /// The reconstruction through the FFT head, filled by the hidden passes only.
     float reconstruction_from_fft[CONTEXT_LENGTH];
@@ -33,6 +33,7 @@ struct pass_output {
  *
  * The plain pass only feeds the forecast error, so it runs the forecast head and not the reconstruction heads.
  * A hidden pass only feeds the reconstruction errors, so it runs the time and FFT heads and not the forecast head.
+ * With `OUTPUTS=read`, outside the dump build, the decoder and the time head compute only the rows the pass reads, so `reconstruction` holds the hidden patch's 8 values and nothing else that is current. That is safe because the errors read only the hidden patch.
  * In the dump build, it writes the records of `backbone`, `decoder_with_head` and `output` under the path its caller pushed.
  *
  * @param weights The model's weights.
