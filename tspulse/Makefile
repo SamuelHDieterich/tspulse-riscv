@@ -85,11 +85,12 @@ GENERATED_OBJECTS := $(GENERATED_SOURCES:$(GENERATED)/%.c=$(BUILD)/generated/%.o
 # The program needs only the weights, while the weight check also needs their table of names
 WEIGHTS_OBJECT := $(BUILD)/generated/weights.o
 
-# What the build compiles with, fixed when the Makefile is read
+# What the build compiles and links, fixed when the Makefile is read
 # A recipe's $(CFLAGS) can carry the target-specific -ffp-contract=off of the object it belongs to, so the stamp and build.json never read it there
 # The compiler's resolved path is in the record, so a new compiler behind the same name rebuilds the objects
+# The newlib files are in it because a setting can add them without changing any flag; without them, one folder built with and then without them keeps the old binary
 # It is exported so the recipe reads it from the environment and quotes it, since the record's paths can hold spaces
-export FLAGS_RECORD := $(CC) $(shell command -v $(CC)) | $(CPPFLAGS) | $(CFLAGS) | $(LDLIBS) | $(REVIN_FILE) $(REVIN_FLAGS) | $(NEWLIB_FLAGS) | $(PROGRAM_SOURCES)
+export FLAGS_RECORD := $(CC) $(shell command -v $(CC)) | $(CPPFLAGS) | $(CFLAGS) | $(LDLIBS) | $(REVIN_FILE) $(REVIN_FLAGS) | $(NEWLIB_FLAGS) | $(PROGRAM_SOURCES) | $(NEWLIB_OBJECTS:$(BUILD)/newlib/%.o=%.c)
 RECORDED_CPPFLAGS := $(strip $(filter-out -I%,$(CPPFLAGS)))
 RECORDED_CFLAGS := $(strip $(CFLAGS))
 RECORDED_LDLIBS := $(LDLIBS)
