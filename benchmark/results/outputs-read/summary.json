@@ -1,0 +1,59 @@
+{
+  "name": "outputs-read",
+  "settings": {
+    "OUTPUTS": "read"
+  },
+  "build": {
+    "commit": "d35dd61ca3720ff2eeaeca32980330b31e3a8339",
+    "tree": "8a0b55633d2d20b73f8f494588b82744ac6efb58",
+    "dirty": false
+  },
+  "verdict": "identical",
+  "exactness": {
+    "windows_compared": 200641,
+    "windows_differing": 0
+  },
+  "reference": {
+    "pass": 7,
+    "fail": 0
+  },
+  "instructions": {
+    "u_mean": 2393973510.3125,
+    "m_mean": 2389212198.6118183,
+    "ratio": 0.9886452157802094
+  },
+  "cycles": {
+    "low": 2403134263,
+    "high": 4447507225
+  },
+  "memory_bytes": {
+    "weights": 4045272,
+    "text": 63122,
+    "static": 224112,
+    "stack": 800,
+    "heap_per_channel": 4128
+  },
+  "traffic_bytes": 1050109056,
+  "vus_pr": {
+    "time": {
+      "value": 0.46455526481416265,
+      "difference": 0.0,
+      "worst": 0.0
+    },
+    "fft": {
+      "value": 0.45018826133056616,
+      "difference": 0.0,
+      "worst": 0.0
+    },
+    "forecast": {
+      "value": 0.37188642149722634,
+      "difference": 0.0,
+      "worst": 0.0
+    },
+    "ensemble": {
+      "value": 0.49783069296433946,
+      "difference": 0.0,
+      "worst": 0.0
+    }
+  }
+}
