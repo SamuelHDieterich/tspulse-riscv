@@ -6,7 +6,7 @@
 #   S_NAME := <lower-case name, used in the build's name and folder>
 #   S_DEFAULT := <default value>
 #   S_VALUES := <every allowed value, in lower case>
-#   S_SOURCES_V   files compiled for V, in place of the baseline files in S_REPLACES
+#   S_SOURCES_V   files compiled for V, in place of the baseline files in S_REPLACES, or added to them when there is no S_REPLACES
 #   S_REPLACES    the baseline files that a value with S_SOURCES_V swaps out
 #   S_DEFINES_V   -D macros for V
 #   S_FLAGS_V     compiler flags for V, on both targets, so the host build keeps matching rv64 bit for bit
@@ -18,7 +18,7 @@
 # ░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀
 
 # Listed in the order they appear in a build's name
-SETTINGS := LINEAR UNROLL MATH OUTPUTS
+SETTINGS := LINEAR UNROLL MATH OUTPUTS EXP
 
 # The blocked kernel keeps each output's sum in the plain loop's order, so the result stays exact
 LINEAR ?= plain
@@ -48,6 +48,17 @@ OUTPUTS_NAME := outputs
 OUTPUTS_DEFAULT := all
 OUTPUTS_VALUES := all read
 OUTPUTS_DEFINES_read := -DTSPULSE_OUTPUTS_READ
+
+# Approximations trade accuracy for fewer instructions per call, and the values are inline headers so that the cheap ones don't pay a call
+EXP ?= libm
+EXP_NAME := exp
+EXP_DEFAULT := libm
+EXP_VALUES := libm fine coarse bits table
+EXP_DEFINES_fine := -DEXP_FINE
+EXP_DEFINES_coarse := -DEXP_COARSE
+EXP_DEFINES_bits := -DEXP_BITS
+EXP_DEFINES_table := -DEXP_TABLE
+EXP_SOURCES_table := kernels/exp/table.c
 
 # ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
 # ░▀▀█░█░█░█░█░█▀▄░█░░░█▀▀░▀▀█

@@ -32,6 +32,7 @@
 #include "io/profile.h"
 #include "io/rows.h"
 #include "io/tdump.h"
+#include "kernels/exp/select.h"
 #include "kernels/fft.h"
 #include "model/history.h"
 #include "model/sizes.h"
@@ -443,8 +444,9 @@ int main(int argc, char **argv) {
     }
 #endif
 
-    // Step 4: the series. Every window reads the FFT's cosine table, so it is filled first
+    // Step 4: the series. Every window reads the FFT's cosine table, and the exponential may read its own, so both are filled first and no window's count includes the fill
     fft_setup();
+    exp_setup();
     int dumped = 0;
     int failed = run_series(
         &options, &reader, errors, counts, profile, dump_target, &dumped

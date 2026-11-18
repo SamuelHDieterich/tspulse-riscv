@@ -11,6 +11,7 @@
 #include <math.h>
 
 // Internal
+#include "kernels/exp/select.h"
 #include "kernels/softmax.h"
 
 // ░█▀▀░█░█░█▀█░█▀▀░▀█▀░▀█▀░█▀█░█▀█░█▀▀
@@ -19,6 +20,7 @@
 
 // softmax(x)[i] = exp(x[i] - max_j x[j]) / sum_k exp(x[k] - max_j x[j])
 // Subtracting the maximum leaves the result unchanged and keeps exp from overflowing
+// The exponential is the one the build selected, `softmax_exp`
 // https://docs.pytorch.org/docs/stable/generated/torch.nn.Softmax.html
 void softmax(float *x, int rows, int features) {
     for (int r = 0; r < rows; r++) {
@@ -33,7 +35,7 @@ void softmax(float *x, int rows, int features) {
         // Step 2: the exponentials and their sum
         float sum = 0.0f;
         for (int i = 0; i < features; i++) {
-            xr[i] = expf(xr[i] - max);
+            xr[i] = softmax_exp(xr[i] - max);
             sum += xr[i];
         }
 

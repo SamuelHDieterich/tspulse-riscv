@@ -137,7 +137,7 @@ all: $(BINARIES) $(STACK_TARGETS) $(BUILD)/build.json
 
 # Each setting with its allowed values and its default
 settings:
-	@printf '%-12s %-24s %s\n' SETTING VALUES DEFAULT; $(foreach s,$(SETTINGS),printf '%-12s %-24s %s\n' '$(s)' '$($(s)_VALUES)' '$($(s)_DEFAULT)';)
+	@printf '%-12s %-28s %s\n' SETTING VALUES DEFAULT; $(foreach s,$(SETTINGS),printf '%-12s %-28s %s\n' '$(s)' '$($(s)_VALUES)' '$($(s)_DEFAULT)';)
 
 stack: $(STACK_OBJECTS)
 
