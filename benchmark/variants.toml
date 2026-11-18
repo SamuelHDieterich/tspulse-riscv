@@ -22,3 +22,28 @@ settings = { OUTPUTS = "read" }
 
 [[variant]]
 settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read" }
+
+# Each of these sits on the best exact stack, so its change is the approximation alone
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", GELU = "fine" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", GELU = "coarse" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", GELU = "tanh" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", GELU = "table" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "fine" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "coarse" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "bits" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "table" }
