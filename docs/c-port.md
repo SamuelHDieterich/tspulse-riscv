@@ -36,6 +36,7 @@ The generated files are rebuilt only when the safetensors file or `export-weight
 - `tspulse-profile`, built only by `make TARGET=rv64`, is built with the macro `TSPULSE_PROFILE`, which turns on `--profile PATH`: it writes the instructions each module took in each window to a CSV. The three write bit-identical errors.
 - With `OUTPUTS=read`, the dump build still computes every row, so `check-model` checks the model but not the code that skips rows, which the variant's errors comparison covers.
 - Under `AGGREGATION`, `check-model` reports the `hiddenNN/` records of the passes that did not run as missing.
+- Under `STRIDE`, a held window can't be dumped with `--dump-window`, so `check-model` reports it as not reached, and a stride build refuses `--profile`.
 
 `make TARGET=rv64` also compiles the program's objects once more with GCC's call-graph output, in `build/rv64/stack/`, which `benchmark profile` reads for the stack's frame sizes.
 
