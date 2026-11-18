@@ -1,0 +1,63 @@
+{
+  "name": "linear-blocked+unroll-on+math-bundled+outputs-read+gelu-fine",
+  "settings": {
+    "LINEAR": "blocked",
+    "UNROLL": "on",
+    "MATH": "bundled",
+    "OUTPUTS": "read",
+    "GELU": "fine"
+  },
+  "build": {
+    "commit": "c61a9eb64cc5bbeddc6ef9dad0ee4555c4a5d35f",
+    "tree": "b73a75363946224f5d12325d363f160ac6e50d16",
+    "dirty": false
+  },
+  "verdict": "beyond-tolerance",
+  "exactness": {
+    "windows_compared": 200641,
+    "windows_differing": 198749
+  },
+  "reference": {
+    "pass": 3,
+    "fail": 4
+  },
+  "instructions": {
+    "u_mean": 867514569.3125,
+    "m_mean": 864025525.345101,
+    "ratio": 0.35825982751218716
+  },
+  "cycles": {
+    "low": 873074591,
+    "high": 2297135456
+  },
+  "memory_bytes": {
+    "weights": 4045272,
+    "text": 73462,
+    "static": 224136,
+    "stack": 912,
+    "heap_per_channel": 4128
+  },
+  "traffic_bytes": 351903317,
+  "vus_pr": {
+    "time": {
+      "value": 0.464555268028839,
+      "difference": 3.2146763977632573e-09,
+      "worst": 0.0
+    },
+    "fft": {
+      "value": 0.45018826153195673,
+      "difference": 2.0139058707716964e-10,
+      "worst": 0.0
+    },
+    "forecast": {
+      "value": 0.37188780661277687,
+      "difference": 1.3851155505212782e-06,
+      "worst": 0.0
+    },
+    "ensemble": {
+      "value": 0.49783071319102135,
+      "difference": 2.02266819387259e-08,
+      "worst": 0.0
+    }
+  }
+}
