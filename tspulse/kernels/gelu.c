@@ -1,27 +1,23 @@
 /**
  * @file
- * PyTorch's GELU in its exact form, through the error function.
+ * PyTorch's GELU over an array, in the form the build selects.
  */
 
 // ░█░░░▀█▀░█▀▄░█▀▄░█▀█░█▀▄░▀█▀░█▀▀░█▀▀
 // ░█░░░░█░░█▀▄░█▀▄░█▀█░█▀▄░░█░░█▀▀░▀▀█
 // ░▀▀▀░▀▀▀░▀▀░░▀░▀░▀░▀░▀░▀░▀▀▀░▀▀▀░▀▀▀
 
-// Built-in
-#include <math.h>
-
 // Internal
 #include "kernels/gelu.h"
+#include "kernels/gelu/select.h"
 
 // ░█▀▀░█░█░█▀█░█▀▀░▀█▀░▀█▀░█▀█░█▀█░█▀▀
 // ░█▀▀░█░█░█░█░█░░░░█░░░█░░█░█░█░█░▀▀█
 // ░▀░░░▀▀▀░▀░▀░▀▀▀░░▀░░▀▀▀░▀▀▀░▀░▀░▀▀▀
 
-// GELU(x) = 0.5 * x * (1 + erf(x / sqrt(2))), the default `approximate='none'`
-// https://docs.pytorch.org/docs/stable/generated/torch.nn.GELU.html
+// Applies the GELU the build's `GELU` setting selects, the exact erf form by default
 void gelu(float *x, int n) {
     for (int i = 0; i < n; i++) {
-        // M_SQRT1_2 is a double, so it is cast to keep the product in float
-        x[i] = 0.5f * x[i] * (1.0f + erff(x[i] * (float)M_SQRT1_2));
+        x[i] = gelu_one(x[i]);
     }
 }

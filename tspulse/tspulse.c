@@ -34,6 +34,7 @@
 #include "io/tdump.h"
 #include "kernels/exp/select.h"
 #include "kernels/fft.h"
+#include "kernels/gelu/select.h"
 #include "model/history.h"
 #include "model/sizes.h"
 #include "model/window.h"
@@ -444,9 +445,10 @@ int main(int argc, char **argv) {
     }
 #endif
 
-    // Step 4: the series. Every window reads the FFT's cosine table, and the exponential may read its own, so both are filled first and no window's count includes the fill
+    // Step 4: the series. Every window reads the FFT's cosine table, and the exponential and GELU may read their own, so all are filled first and no window's count includes the fill
     fft_setup();
     exp_setup();
+    gelu_setup();
     int dumped = 0;
     int failed = run_series(
         &options, &reader, errors, counts, profile, dump_target, &dumped

@@ -18,7 +18,7 @@
 # ░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀
 
 # Listed in the order they appear in a build's name
-SETTINGS := LINEAR UNROLL MATH OUTPUTS EXP
+SETTINGS := LINEAR UNROLL MATH OUTPUTS EXP GELU
 
 # The blocked kernel keeps each output's sum in the plain loop's order, so the result stays exact
 LINEAR ?= plain
@@ -59,6 +59,17 @@ EXP_DEFINES_coarse := -DEXP_COARSE
 EXP_DEFINES_bits := -DEXP_BITS
 EXP_DEFINES_table := -DEXP_TABLE
 EXP_SOURCES_table := kernels/exp/table.c
+
+# GELU's values are inline headers for the same reason as EXP's
+GELU ?= libm
+GELU_NAME := gelu
+GELU_DEFAULT := libm
+GELU_VALUES := libm fine coarse tanh table
+GELU_DEFINES_fine := -DGELU_FINE
+GELU_DEFINES_coarse := -DGELU_COARSE
+GELU_DEFINES_tanh := -DGELU_TANH
+GELU_DEFINES_table := -DGELU_TABLE
+GELU_SOURCES_table := kernels/gelu/table.c
 
 # ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
 # ░▀▀█░█░█░█░█░█▀▄░█░░░█▀▀░▀▀█
