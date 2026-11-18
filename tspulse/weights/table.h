@@ -11,16 +11,24 @@
 // Built-in
 #include <stdint.h>
 
+// Internal
+#include "weights/quant.h"
+
 // ░▀█▀░█░█░█▀█░█▀▀░█▀▀
 // ░░█░░░█░░█▀▀░█▀▀░▀▀█
 // ░░▀░░░▀░░▀░░░▀▀▀░▀▀▀
 
 /// One weight tensor.
+/// In an int8 build, a quantized weight has `data` NULL and fills `q` and `scale`.
 struct weight_entry {
     const char *name;  ///< The PyTorch tensor name.
-    const float *data; ///< The values, row-major.
+    const float *data; ///< The float32 values, row-major, else NULL.
     int ndim;          ///< The number of dimensions.
     uint32_t dims[4];  ///< The size of each dimension.
+#ifdef TSPULSE_QUANT_INT8
+    const int8_t *q;    ///< A quantized weight's int8 values, else NULL.
+    const float *scale; ///< Its scale per output row, else NULL.
+#endif
 };
 
 // ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀█░█▀█░▀█▀░█▀▀

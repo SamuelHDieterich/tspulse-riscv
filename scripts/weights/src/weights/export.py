@@ -9,6 +9,12 @@ import os
 from pathlib import Path
 
 # Internal
+from weights.quantize import (
+    dequantize,
+    quantize,
+    render_int8_table,
+    render_int8_weights,
+)
 from weights.render import render_table, render_weights
 from weights.safetensors import Failure, Tensor, read_safetensors
 from weights.tdump import render_tdump
@@ -90,7 +96,7 @@ def write_if_changed(path: Path, content: bytes) -> bool:
 
 
 def export(safetensors: Path, outdir: Path) -> dict[str, bool]:
-    """Write the three generated files for a safetensors file.
+    """Write the six generated files for a safetensors file: the float set and the int8 set.
 
     Parameters
     ----------
@@ -111,10 +117,14 @@ def export(safetensors: Path, outdir: Path) -> dict[str, bool]:
     """
 
     tensors = select(read_safetensors(safetensors))
+    quantized = quantize(tensors)
     files = {
         "weights.c": render_weights(tensors).encode(),
         "weights_table.c": render_table(tensors).encode(),
         "weights.tdump": render_tdump(tensors),
+        "weights_int8.c": render_int8_weights(quantized).encode(),
+        "weights_int8_table.c": render_int8_table(quantized).encode(),
+        "weights_int8.tdump": render_tdump(dequantize(quantized)),
     }
 
     try:

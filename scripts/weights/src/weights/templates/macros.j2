@@ -1,0 +1,15 @@
+{# A row of values is printed directly, a deeper level recurses once per entry of its first dimension #}
+{# The closing brace ends without a newline, so the caller can add the comma #}
+{% macro braces(node, depth, indent, designator="") %}
+{{ indent }}{{ designator }}{
+{% if depth == 1 %}
+{% for row in node %}
+{{ indent }}    {{ row | join(", ") }},
+{% endfor %}
+{% else %}
+{% for child in node %}
+{{ braces(child, depth - 1, indent + "    ") }},
+{% endfor %}
+{% endif %}
+{{ indent }}}
+{%- endmacro %}

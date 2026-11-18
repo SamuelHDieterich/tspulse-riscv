@@ -8,9 +8,25 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+// Internal
+#include "weights/quant.h"
+
 // ░▀█▀░█░█░█▀█░█▀▀░█▀▀
 // ░░█░░░█░░█▀▀░█▀▀░▀▀█
 // ░░▀░░░▀░░▀░░░▀▀▀░▀▀▀
+
+#ifdef TSPULSE_QUANT_INT8
+/// The members of a mixer Linear: int8 weights with one float scale per output row.
+#define MIXER_LINEAR(OUT, IN)                                                  \
+    int8_t weight[OUT][IN];                                                    \
+    float scale[OUT];                                                          \
+    float bias[OUT];
+#else
+/// The members of a mixer Linear.
+#define MIXER_LINEAR(OUT, IN)                                                  \
+    float weight[OUT][IN];                                                     \
+    float bias[OUT];
+#endif
 
 /// An nn.LayerNorm over 24 features.
 struct layer_norm_24 {
@@ -26,60 +42,51 @@ struct norm_layer {
 /// A gated attention block over 10 features.
 struct gated_attention_10 {
     struct {
-        float weight[10][10];
-        float bias[10];
+        MIXER_LINEAR(10, 10)
     } attn_layer;
 };
 
 /// A gated attention block over 24 features.
 struct gated_attention_24 {
     struct {
-        float weight[24][24];
-        float bias[24];
+        MIXER_LINEAR(24, 24)
     } attn_layer;
 };
 
 /// A gated attention block over 138 features.
 struct gated_attention_138 {
     struct {
-        float weight[138][138];
-        float bias[138];
+        MIXER_LINEAR(138, 138)
     } attn_layer;
 };
 
 /// A two-layer MLP from 10 features to 20 and back.
 struct mlp_10 {
     struct {
-        float weight[20][10];
-        float bias[20];
+        MIXER_LINEAR(20, 10)
     } fc1;
     struct {
-        float weight[10][20];
-        float bias[10];
+        MIXER_LINEAR(10, 20)
     } fc2;
 };
 
 /// A two-layer MLP from 24 features to 48 and back.
 struct mlp_24 {
     struct {
-        float weight[48][24];
-        float bias[48];
+        MIXER_LINEAR(48, 24)
     } fc1;
     struct {
-        float weight[24][48];
-        float bias[24];
+        MIXER_LINEAR(24, 48)
     } fc2;
 };
 
 /// A two-layer MLP from 138 features to 276 and back.
 struct mlp_138 {
     struct {
-        float weight[276][138];
-        float bias[276];
+        MIXER_LINEAR(276, 138)
     } fc1;
     struct {
-        float weight[138][276];
-        float bias[138];
+        MIXER_LINEAR(138, 276)
     } fc2;
 };
 

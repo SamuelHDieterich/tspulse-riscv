@@ -10,7 +10,7 @@ The C code lives in `tspulse/`, one folder per role:
 - `checks/` has programs that only verify.
 - `build/` holds objects and executables per target, and the generated weights both targets share.
 
-The weights are compiled in. `export-weights` reads `model.safetensors` and writes the C that fills `struct tspulse_weights`, plus a table for the checks and a `.tdump` of the same values. It leaves out the frequency signature head, which the baseline never runs, so the program carries 226 tensors and 4,045,272 bytes of read-only data.
+The weights are compiled in. `export-weights` reads `model.safetensors` and writes the C that fills `struct tspulse_weights`, plus a table for the checks and a `.tdump` of the same values. It leaves out the frequency signature head, which the baseline never runs, so the program carries 226 tensors and 4,045,272 bytes of read-only data. It also writes an int8 set beside it (`weights_int8.c`, `weights_int8_table.c` and `weights_int8.tdump`), with the mixer Linear weights as int8 and one float32 scale per output row, which the `QUANT` builds use.
 
 ## Building
 
