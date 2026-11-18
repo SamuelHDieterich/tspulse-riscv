@@ -3,6 +3,7 @@
 # `tspulse-profile`, built for rv64 only, reads the instruction counter at the same hooks to count instructions per module
 # `make stack` compiles the program with `-fcallgraph-info=su`, which leaves a `.ci` file of stack frame sizes beside each object, and links nothing; `make TARGET=rv64` also builds them
 # `make check` runs the weight check and compares its dump with the one export-weights wrote from the safetensors file
+# `make approx-errors` (host only) builds `check-approx` and writes approx-errors.csv in the build's folder, as in build/host/approx-errors.csv, each exp and GELU approximation's error against double precision
 # Run inside the dev shell, after `download-weights`
 # Settings are Make variables listed in variants.mk, and `make settings` prints them with their values and defaults; `make LINEAR=blocked` would pick one
 # A build that sets nothing is the baseline, in build/<target>; any other lands in build/<name>/<target>, named after its non-default settings, as in build/linear-blocked+unroll-on/host
@@ -72,6 +73,12 @@ PROFILE_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/profile/%.o) $(BUILD)/profile/
 # The stack build is the clean program's objects with the call graph written beside them, so the frame sizes are those of the real build
 STACK_OBJECTS := $(PROGRAM_SOURCES:%.c=$(BUILD)/stack/%.o)
 
+# The approximation check holds every value's header and both tables, whatever the settings, and is no part of BINARIES or all
+# Its objects leave out those the program already holds, so a table build doesn't name kernels/*/table.o twice
+APPROX_SOURCES := checks/approx.c kernels/exp/table.c kernels/gelu/table.c
+APPROX_OBJECTS := $(APPROX_SOURCES:%.c=$(BUILD)/%.o)
+APPROX_NEW_OBJECTS := $(filter-out $(PROGRAM_OBJECTS),$(APPROX_OBJECTS))
+
 ifneq ($(NEWLIB_LINKED),)
 NEWLIB_OBJECTS := $(NEWLIB_FILES:%.c=$(BUILD)/newlib/%.o)
 endif
@@ -123,7 +130,7 @@ endif
 # ░░█░░█▀█░█▀▄░█░█░█▀▀░░█░░▀▀█
 # ░░▀░░▀░▀░▀░▀░▀▀▀░▀▀▀░░▀░░▀▀▀
 
-.PHONY: all check clean settings stack FORCE
+.PHONY: all approx-errors check clean settings stack FORCE
 
 # The rv64 build keeps the call-graph objects fresh too, so the stack frames `benchmark profile` reads never lag behind the sources
 ifeq ($(TARGET),rv64)
@@ -153,6 +160,14 @@ endif
 	grep -E '^[0-9]+ pass, ' $(BUILD)/compare.txt; \
 	[ $$status -eq 0 ] && grep -Eq '^[0-9]+ pass, 0 fail, 0 missing, 0 extra$$' $(BUILD)/compare.txt
 
+# Refused before anything builds: the check runs the host's binary directly
+ifneq ($(filter approx-errors,$(MAKECMDGOALS)),)
+$(if $(filter host,$(TARGET)),,$(error approx-errors runs on the host only, got TARGET=$(TARGET)))
+endif
+
+approx-errors: $(BUILD)/check-approx
+	$(BUILD)/check-approx $(BUILD)/approx-errors.csv
+
 clean:
 	rm -rf build
 
@@ -162,6 +177,10 @@ clean:
 
 $(BUILD)/check-weights: $(OBJECTS) $(GENERATED_OBJECTS) $(PLATFORM_OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+
+# The newlib objects come before -lm, so the tables and the libm rows use the program's erff and expf, not glibc's
+$(BUILD)/check-approx: $(APPROX_OBJECTS) $(NEWLIB_OBJECTS) $(PLATFORM_OBJECTS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 # The newlib objects come before -lm, so the linker finds erff and expf in them first
 $(BUILD)/tspulse: $(PROGRAM_OBJECTS) $(WEIGHTS_OBJECT) $(NEWLIB_OBJECTS) $(PLATFORM_OBJECTS)
@@ -178,14 +197,14 @@ $(GENERATED_OBJECTS): $(BUILD)/generated/%.o: $(GENERATED)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Werror -c $< -o $@
 
-$(OBJECTS) $(PROGRAM_OBJECTS) $(PLATFORM_OBJECTS): $(BUILD)/%.o: %.c
+$(OBJECTS) $(APPROX_NEW_OBJECTS) $(PROGRAM_OBJECTS) $(PLATFORM_OBJECTS): $(BUILD)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 $(foreach d,$(BUILD) $(BUILD)/dump $(BUILD)/profile $(BUILD)/stack,$(d)/$(REVIN_FILE:.c=.o)): CFLAGS += $(REVIN_FLAGS)
 
 # Every object is rebuilt when the stamp of the build's flags and files changes
-$(OBJECTS) $(PROGRAM_OBJECTS) $(DUMP_OBJECTS) $(PROFILE_OBJECTS) $(STACK_OBJECTS) $(NEWLIB_OBJECTS) $(PLATFORM_OBJECTS) $(GENERATED_OBJECTS): $(BUILD)/flags
+$(OBJECTS) $(APPROX_NEW_OBJECTS) $(PROGRAM_OBJECTS) $(DUMP_OBJECTS) $(PROFILE_OBJECTS) $(STACK_OBJECTS) $(NEWLIB_OBJECTS) $(PLATFORM_OBJECTS) $(GENERATED_OBJECTS): $(BUILD)/flags
 
 $(DUMP_OBJECTS): $(BUILD)/dump/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -277,4 +296,4 @@ $(GENERATED)/stamp: $(SAFETENSORS_PREREQ) $(GENERATED)/generator
 
 $(GENERATED)/weights.c $(GENERATED)/weights_table.c $(GENERATED)/weights.tdump: $(GENERATED)/stamp ;
 
--include $(OBJECTS:.o=.d) $(PROGRAM_OBJECTS:.o=.d) $(DUMP_OBJECTS:.o=.d) $(PROFILE_OBJECTS:.o=.d) $(STACK_OBJECTS:.o=.d) $(NEWLIB_OBJECTS:.o=.d) $(PLATFORM_OBJECTS:.o=.d) $(GENERATED_OBJECTS:.o=.d)
+-include $(OBJECTS:.o=.d) $(APPROX_NEW_OBJECTS:.o=.d) $(PROGRAM_OBJECTS:.o=.d) $(DUMP_OBJECTS:.o=.d) $(PROFILE_OBJECTS:.o=.d) $(STACK_OBJECTS:.o=.d) $(NEWLIB_OBJECTS:.o=.d) $(PLATFORM_OBJECTS:.o=.d) $(GENERATED_OBJECTS:.o=.d)

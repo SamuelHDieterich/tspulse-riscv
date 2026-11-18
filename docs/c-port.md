@@ -19,6 +19,7 @@ From `tspulse/`, inside the dev shell and after `download-weights`:
 ```bash
 make                    # builds check-weights, tspulse and tspulse-dump for the host
 make check              # runs the weight check and compares its dump with the one `export-weights` wrote from the safetensors file, bit for bit
+make approx-errors      # host only: writes each exp and GELU approximation's error against double precision to `build/host/approx-errors.csv`
 make TARGET=rv64        # the same programs for RISC-V
 make TARGET=rv64 check  # the weight check under Spike
 make clean
