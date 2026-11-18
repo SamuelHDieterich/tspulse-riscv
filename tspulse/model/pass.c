@@ -41,7 +41,7 @@
 /// Where the register tokens start: the last 10 rows.
 #define REGISTER_ROWS_OFFSET (ENCODED_PATCHES * D_MODEL)
 
-/// The decoder's time row for the first hidden patch: the patch that holds series row `FIRST_HIDDEN_ROW`, where the scored rows start.
+/// The decoder's time row for the first hidden patch: the patch that holds series row `FIRST_HIDDEN_ROW`, where the rows the hidden passes can hide start.
 #define FIRST_HIDDEN_TIME_ROW (FIRST_HIDDEN_ROW / PATCH_LENGTH)
 
 /// Where the FFT rows start, as a row index.

@@ -39,6 +39,7 @@ from score.profile.disassembly import read_mnemonics
 from score.profile.errors import ProfileError
 from score.profile.symbols import read_functions
 from score.profile.tables import WindowNumbers, analyse_window, write_tables
+from score.profile.traffic import hidden_copies
 from score.profile.units import ProfileSettings, is_done, run_units, units_of
 from score.series_check import _find_series, write_rows
 from score.spike_check import (
@@ -360,6 +361,7 @@ def profile(
             weights_table,
             stack_folder,
             source,
+            hidden_copies(record.settings),
         )
         write_build(record, tables)
     except (OSError, ProfileError) as error:

@@ -28,6 +28,7 @@ from score.profile.mix import mix_counts
 from score.profile.modules import ModuleRow, nest_modules, read_profile
 from score.profile.symbols import FunctionTable
 from score.profile.traffic import (
+    DEFAULT_HIDDEN_COPIES,
     Traffic,
     read_cache_report,
     traffic_floor,
@@ -426,6 +427,7 @@ def write_tables(
     weights_table: Path,
     stack_folder: Path,
     source_folder: Path,
+    hidden_copies: int = DEFAULT_HIDDEN_COPIES,
 ) -> None:
     """Write the six tables.
 
@@ -445,6 +447,8 @@ def write_tables(
         The `.ci` files of the clean build.
     source_folder : Path
         The `tspulse` source folder.
+    hidden_copies : int
+        Hidden passes per window in the build, for the traffic floor.
 
     Raises
     ------
@@ -498,7 +502,7 @@ def write_tables(
     )
 
     # Step 4: traffic, then the least a window must stream, which no window changes
-    floor = traffic_floor(read_tensor_sizes(weights_table))
+    floor = traffic_floor(read_tensor_sizes(weights_table), hidden_copies)
     _write_csv(
         folder / TRAFFIC_TABLE,
         ["window", "measure", "value"],

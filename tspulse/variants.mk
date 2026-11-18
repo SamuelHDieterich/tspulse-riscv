@@ -18,7 +18,7 @@
 # ░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀
 
 # Listed in the order they appear in a build's name
-SETTINGS := LINEAR UNROLL MATH OUTPUTS EXP GELU
+SETTINGS := LINEAR UNROLL MATH OUTPUTS EXP GELU AGGREGATION
 
 # The blocked kernel keeps each output's sum in the plain loop's order, so the result stays exact
 LINEAR ?= plain
@@ -70,6 +70,15 @@ GELU_DEFINES_coarse := -DGELU_COARSE
 GELU_DEFINES_tanh := -DGELU_TANH
 GELU_DEFINES_table := -DGELU_TABLE
 GELU_SOURCES_table := kernels/gelu/table.c
+
+# Scoring fewer of the last rows runs fewer hidden passes per window, so the rescore must use the same length
+AGGREGATION ?= 96
+AGGREGATION_NAME := aggregation
+AGGREGATION_DEFAULT := 96
+AGGREGATION_VALUES := 96 64 48 32
+AGGREGATION_DEFINES_64 := -DTSPULSE_AGGREGATION=64
+AGGREGATION_DEFINES_48 := -DTSPULSE_AGGREGATION=48
+AGGREGATION_DEFINES_32 := -DTSPULSE_AGGREGATION=32
 
 # ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
 # ░▀▀█░█░█░█░█░█▀▄░█░░░█▀▀░▀▀█

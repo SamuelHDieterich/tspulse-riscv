@@ -39,8 +39,12 @@ COUNTERS = (
 PLAIN_EXCLUDED = ("decoder_with_head.fft_head.", "decoder_with_head.time_head.")
 HIDDEN_EXCLUDED = ("decoder_with_head.forecast_mapping.",)
 
-# The hidden set is read once per copy
-HIDDEN_COPIES = 12
+# The hidden set is read once per hidden pass, and a build that scores fewer rows runs fewer
+DEFAULT_HIDDEN_COPIES = 12
+
+# A build's aggregation length, as its record names the setting, and the rows each hidden pass covers
+AGGREGATION_SETTING = "aggregation"
+PATCH_LENGTH = 8
 
 
 # ░█▀▀░█░░░█▀█░█▀▀░█▀▀░█▀▀░█▀▀
@@ -186,16 +190,37 @@ def window_traffic(longer: CacheCounters, shorter: CacheCounters) -> Traffic:
     )
 
 
-def traffic_floor(tensors: TensorSizes) -> int:
+def hidden_copies(settings: dict[str, str]) -> int:
+    """Hidden passes a window runs in a build.
+
+    Parameters
+    ----------
+    settings : dict[str, str]
+        The build record's settings, each by lower-case name.
+
+    Returns
+    -------
+    int
+        `aggregation / 8`, or the default when the record has no aggregation.
+    """
+
+    if AGGREGATION_SETTING not in settings:
+        return DEFAULT_HIDDEN_COPIES
+    return int(settings[AGGREGATION_SETTING]) // PATCH_LENGTH
+
+
+def traffic_floor(tensors: TensorSizes, copies: int = DEFAULT_HIDDEN_COPIES) -> int:
     """Bytes of weights one window must stream through the data cache.
 
     The weights are far larger than the cache, so each pass reads the tensors it uses from memory.
-    floor = bytes(plain set) + HIDDEN_COPIES * bytes(hidden set)
+    floor = bytes(plain set) + copies * bytes(hidden set)
 
     Parameters
     ----------
     tensors : TensorSizes
         Each tensor's bytes, from the generated table.
+    copies : int
+        Hidden passes per window.
 
     Returns
     -------
@@ -209,4 +234,4 @@ def traffic_floor(tensors: TensorSizes) -> int:
     hidden = sum(
         size for name, size in tensors.items() if not name.startswith(HIDDEN_EXCLUDED)
     )
-    return plain + HIDDEN_COPIES * hidden
+    return plain + copies * hidden
