@@ -28,6 +28,10 @@ SETTINGS_KEY = "settings"
 AGGREGATION_SETTING = "aggregation"
 STRIDE_SETTING = "stride"
 
+# The targets a label's identity and a result keep their two build records under
+HOST_TARGET = "host"
+RV64_TARGET = "rv64"
+
 # The stride a build has when its record names none
 DEFAULT_STRIDE = 1
 

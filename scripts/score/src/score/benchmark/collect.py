@@ -27,7 +27,6 @@ from score.benchmark.results import (
     find_results,
     read_identity,
 )
-from score.benchmark.run import RV64_TARGET
 from score.benchmark.scope import Scope, Series, read_series, scope_range
 from score.benchmark.scoring import (
     ScopeScore,
@@ -61,7 +60,7 @@ from score.benchmark.units import (
     accuracy_units,
     instruction_units,
 )
-from score.build_record import SETTINGS_KEY, build_aggregation
+from score.build_record import RV64_TARGET, SETTINGS_KEY, build_aggregation
 from score.layout import BENCHMARK_FOLDER, MODEL_FOLDER
 from score.pipeline import AGGREGATION_LENGTH, load_model, load_series
 from score.series_check import _find_series

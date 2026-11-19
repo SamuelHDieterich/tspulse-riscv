@@ -28,7 +28,6 @@ from score.profile.mix import mix_counts
 from score.profile.modules import ModuleRow, nest_modules, read_profile
 from score.profile.symbols import FunctionTable
 from score.profile.traffic import (
-    DEFAULT_HIDDEN_COPIES,
     Traffic,
     read_cache_report,
     traffic_floor,
@@ -427,7 +426,7 @@ def write_tables(
     weights_table: Path,
     stack_folder: Path,
     source_folder: Path,
-    hidden_copies: int = DEFAULT_HIDDEN_COPIES,
+    hidden_copies: int,
 ) -> None:
     """Write the six tables.
 

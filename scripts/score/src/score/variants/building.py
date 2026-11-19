@@ -10,8 +10,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # Internal
-from score.benchmark.run import HOST_TARGET, RV64_TARGET, read_checked_build
-from score.build_record import BASELINE_NAME, BuildRecord, build_path
+from score.benchmark.run import read_checked_build
+from score.build_record import (
+    BASELINE_NAME,
+    HOST_TARGET,
+    RV64_TARGET,
+    BuildRecord,
+    build_path,
+)
 from score.spike_check import CLEAN_BINARY
 from score.variants.listing import MAKE_FOLDER, VariantEntry, VariantError
 

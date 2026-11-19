@@ -30,8 +30,7 @@ Each variant goes through these stages, one variant after the other:
 - **reference check**: the host build on the reference windows, as in [Checking the C against PyTorch](checks.md#checking-the-c-against-pytorch). A window that differs does not stop the variant: it is counted in the summary;
 - **run**: `benchmark run` with the `screen` scope on the host and the `middle` counted windows under Spike, the same settings for every variant;
 - **collect**: `benchmark collect --against baseline`;
-- **profile**: `benchmark profile` on its default windows;
-  a variant with a stride is not profiled: its stage only logs `profile: derived from <stack>` and copies the rv64 build's `build.json` to `benchmark/results/<label>/build.json`;
+- **profile**: `benchmark profile` on its default windows; a variant with a stride is not profiled: its stage only logs `profile: derived from <stack>` and copies the rv64 build's `build.json` to `benchmark/results/<label>/build.json`;
 - **summary**: compares the variant's per-window errors with the baseline's, text for text, and writes `summary.json`.
 
 A stage that fails is logged as a `problem:` line, the variant's later stages are skipped, and the next variant starts.

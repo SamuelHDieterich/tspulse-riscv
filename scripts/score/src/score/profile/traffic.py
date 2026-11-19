@@ -40,10 +40,7 @@ COUNTERS = (
 PLAIN_EXCLUDED = ("decoder_with_head.fft_head.", "decoder_with_head.time_head.")
 HIDDEN_EXCLUDED = ("decoder_with_head.forecast_mapping.",)
 
-# The hidden set is read once per hidden pass, and a build that scores fewer rows runs fewer
-DEFAULT_HIDDEN_COPIES = 12
-
-# The rows each hidden pass covers
+# The rows each hidden pass covers, so a build that scores fewer rows runs fewer hidden passes
 PATCH_LENGTH = 8
 
 
@@ -207,7 +204,7 @@ def hidden_copies(settings: dict[str, str]) -> int:
     return build_aggregation(settings) // PATCH_LENGTH
 
 
-def traffic_floor(tensors: TensorSizes, copies: int = DEFAULT_HIDDEN_COPIES) -> int:
+def traffic_floor(tensors: TensorSizes, copies: int) -> int:
     """Bytes of weights one window must stream through the data cache.
 
     The weights are far larger than the cache, so each pass reads the tensors it uses from memory.

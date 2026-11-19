@@ -90,12 +90,14 @@ struct options {
 /// One line of the counts CSV.
 #define COUNTS_LINE "%u,%" PRIu64 "\n"
 #endif
-/// The model runs on every STRIDE-th window, counted from the series' first window, so a chunk's errors don't depend on where it starts.
-#ifdef TSPULSE_STRIDE
-#define STRIDE TSPULSE_STRIDE
-#else
-#define STRIDE 1
+
+// The build's stride, 1 unless the build asks for more
+#ifndef TSPULSE_STRIDE
+#define TSPULSE_STRIDE 1
 #endif
+
+/// The model runs on every STRIDE-th window, counted from the series' first window, so a chunk's errors don't depend on where it starts.
+#define STRIDE TSPULSE_STRIDE
 
 _Static_assert(STRIDE >= 1, "STRIDE must be at least 1");
 
@@ -295,7 +297,7 @@ static int run_series(
         uint32_t window = r - CONTEXT_LENGTH;
         if (window < options->start) {
 #if STRIDE > 1
-            // Guarded for the same reason as `anchor`. The anchor's errors are held but not written, and it is not counted
+            // Guarded so a STRIDE 1 build keeps the baseline's machine code. The anchor's errors are held but not written, and it is not counted
             if (window == anchor && window_run(&history, NULL, &held)) {
                 fprintf(stderr, "cannot run window %u\n", window);
                 failed = 1;
@@ -341,7 +343,7 @@ static int run_series(
         }
 
 #if STRIDE > 1
-        // Guarded for the same reason as `anchor`
+        // Guarded so a STRIDE 1 build keeps the baseline's machine code
         held = result;
 #endif
 

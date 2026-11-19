@@ -31,7 +31,6 @@ from score.benchmark.results import (
     write_result,
 )
 from score.benchmark.units import AccuracyUnit, InstructionUnit
-from score.build_record import DEFAULT_STRIDE
 from score.processes import Processes
 from score.spike_check import (
     HOST_ERRORS,
@@ -108,7 +107,7 @@ class Settings:
     accuracy_on: Platform
     host_check: HostCheck
     provenance: Provenance
-    stride: int = DEFAULT_STRIDE
+    stride: int
     processes: Processes = field(default_factory=Processes)
 
     def rows_path(self, series: str) -> Path:

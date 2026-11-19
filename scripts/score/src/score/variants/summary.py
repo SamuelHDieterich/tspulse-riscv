@@ -40,8 +40,8 @@ from score.variants.formula import evaluate_formula
 from score.variants.listing import VariantError
 from score.variants.state import (
     COUNT_WINDOWS,
-    build_stride,
     label_folder,
+    label_stride,
     missing_stages,
     read_reference_windows,
     stack_name,
@@ -529,7 +529,7 @@ def variant_summary(
 
     # A variant with a stride runs its stack's model code on every N-th window, so its profile is the stack's with the per-window costs divided by N
     identity = read_identity(label_folder(data, label))
-    stride = build_stride(identity)
+    stride = label_stride(identity)
     if stride == DEFAULT_STRIDE:
         profile_from = None
         cycles, memory, traffic = _profile(tables / WORK_SUBFOLDER)
