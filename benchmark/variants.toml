@@ -47,3 +47,10 @@ settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "rea
 
 [[variant]]
 settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "table" }
+
+# These two measure accuracy, memory and traffic; their instruction counts are a worst case, since int8 math only pays off with vector instructions
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", QUANT = "w8a32" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", QUANT = "w8a8" }
