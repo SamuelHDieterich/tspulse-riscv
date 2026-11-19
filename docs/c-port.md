@@ -19,11 +19,14 @@ From `tspulse/`, inside the dev shell and after `download-weights`:
 ```bash
 make                    # builds check-weights, tspulse and tspulse-dump for the host
 make check              # runs the weight check and compares its dump with the one `export-weights` wrote from the safetensors file, bit for bit
+make check-qlinear      # QUANT builds only: checks the quantized Linear kernel against the float one on the same weights, bit for bit
 make approx-errors      # host only: writes each exp and GELU approximation's error against double precision to `build/host/approx-errors.csv`
 make TARGET=rv64        # the same programs for RISC-V
 make TARGET=rv64 check  # the weight check under Spike
 make clean
 ```
+
+On a `QUANT` build, such as `make QUANT=w8a32 check`, `make check` compares against `weights_int8.tdump`, and the quantized weights are dumped as the float values the model uses, `scale * q`. `make TARGET=rv64 check-qlinear` runs the kernel check under Spike.
 
 The generated files are rebuilt only when the safetensors file or `export-weights` changes (after re-entering the dev shell). If you delete one by hand, run `make clean`.
 

@@ -17,9 +17,11 @@
 #include "kernels/layer_norm.h"
 #include "kernels/linear.h"
 #include "kernels/multiply.h"
+#include "kernels/qlinear.h"
 #include "kernels/softmax.h"
 #include "kernels/transpose.h"
 #include "model/sizes.h"
+#include "weights/quant.h"
 #include "weights/types.h"
 
 // ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀█░█▀█░▀█▀░█▀▀
@@ -43,11 +45,44 @@
 // ░▀░░░▀▀▀░▀░▀░▀▀▀░░▀░░▀▀▀░▀▀▀░▀░▀░▀▀▀
 
 /**
+ * One mixer Linear, by the kernel that matches the build's weight format.
+ *
+ * @param x The input, `rows` rows of `in` values.
+ * @param weight The weights, `out` rows of `in` values.
+ * @param scale The scale of each weight row in a `QUANT` build, else NULL.
+ * @param bias The bias, `out` values.
+ * @param y Receives `rows` rows of `out` values. It must not overlap `x`.
+ * @param rows Rows in `x`.
+ * @param in Values per input row.
+ * @param out Values per output row.
+ */
+static inline void mixer_linear(
+    const float *x,
+    const mixer_weight *weight,
+    const float *scale,
+    const float *bias,
+    float *y,
+    int rows,
+    int in,
+    int out
+) {
+#if defined(TSPULSE_QUANT_W8A32)
+    linear_w8a32(x, weight, scale, bias, y, rows, in, out);
+#else
+    // Float weights carry no scales
+    (void)scale;
+    linear(x, weight, bias, y, rows, in, out);
+#endif
+}
+
+/**
  * The body of every `TSPulseMLP`: fc1, GELU, fc2.
  *
  * @param fc1_weight fc1's weights, `hidden_features` rows of `features`.
+ * @param fc1_scale fc1's scale per weight row in a `QUANT` build, else NULL.
  * @param fc1_bias fc1's bias, `hidden_features` values.
  * @param fc2_weight fc2's weights, `features` rows of `hidden_features`.
+ * @param fc2_scale fc2's scale per weight row in a `QUANT` build, else NULL.
  * @param fc2_bias fc2's bias, `features` values.
  * @param x The input, `rows` rows of `features` values.
  * @param y Receives `rows` rows of `features` values. It must not overlap `x`.
@@ -56,9 +91,11 @@
  * @param hidden_features Values per row of the hidden layer.
  */
 static void
-mlp(const float *fc1_weight,
+mlp(const mixer_weight *fc1_weight,
+    const float *fc1_scale,
     const float *fc1_bias,
-    const float *fc2_weight,
+    const mixer_weight *fc2_weight,
+    const float *fc2_scale,
     const float *fc2_bias,
     const float *x,
     float *y,
@@ -68,7 +105,10 @@ mlp(const float *fc1_weight,
     static float hidden[MLP_SCRATCH];
 
     // Step 1: fc1
-    linear(x, fc1_weight, fc1_bias, hidden, rows, features, hidden_features);
+    mixer_linear(
+        x, fc1_weight, fc1_scale, fc1_bias, hidden, rows, features,
+        hidden_features
+    );
     DUMP(
         "fc1", hidden, NETWORK_NDIM, DIMS(DUMP_CHANNELS, rows, hidden_features),
         CHANNEL_FIRST
@@ -82,7 +122,10 @@ mlp(const float *fc1_weight,
     );
 
     // Step 3: fc2, whose output is also the second dropout's and the MLP's
-    linear(hidden, fc2_weight, fc2_bias, y, rows, hidden_features, features);
+    mixer_linear(
+        hidden, fc2_weight, fc2_scale, fc2_bias, y, rows, hidden_features,
+        features
+    );
     DUMP(
         "fc2", y, NETWORK_NDIM, DIMS(DUMP_CHANNELS, rows, features),
         CHANNEL_FIRST
@@ -100,6 +143,7 @@ mlp(const float *fc1_weight,
  * The body of every `TSPulseGatedAttention`: y = x * softmax(Linear(x)), the softmax over each row.
  *
  * @param weight The Linear's weights, `features` rows of `features`.
+ * @param scale The Linear's scale per weight row in a `QUANT` build, else NULL.
  * @param bias The Linear's bias, `features` values.
  * @param x The input, `rows` rows of `features` values.
  * @param y Receives `rows` rows of `features` values. It must not overlap `x`.
@@ -107,7 +151,8 @@ mlp(const float *fc1_weight,
  * @param features Values per row.
  */
 static void gated_attention(
-    const float *weight,
+    const mixer_weight *weight,
+    const float *scale,
     const float *bias,
     const float *x,
     float *y,
@@ -115,7 +160,7 @@ static void gated_attention(
     int features
 ) {
     // y doubles as the gate's buffer, so the gate needs no memory of its own
-    linear(x, weight, bias, y, rows, features, features);
+    mixer_linear(x, weight, scale, bias, y, rows, features, features);
     DUMP(
         "attn_layer", y, NETWORK_NDIM, DIMS(DUMP_CHANNELS, rows, features),
         CHANNEL_FIRST
@@ -196,31 +241,34 @@ static void patch_mixer_end(
 }
 
 void mlp_10(const struct mlp_10 *weights, const float *x, float *y, int rows) {
-    mlp(&weights->fc1.weight[0][0], weights->fc1.bias,
-        &weights->fc2.weight[0][0], weights->fc2.bias, x, y, rows,
+    mlp(&weights->fc1.weight[0][0], MIXER_SCALE(weights->fc1),
+        weights->fc1.bias, &weights->fc2.weight[0][0],
+        MIXER_SCALE(weights->fc2), weights->fc2.bias, x, y, rows,
         REGISTER_TOKENS, REGISTER_MLP_HIDDEN);
 }
 
 void mlp_24(const struct mlp_24 *weights, const float *x, float *y, int rows) {
-    mlp(&weights->fc1.weight[0][0], weights->fc1.bias,
-        &weights->fc2.weight[0][0], weights->fc2.bias, x, y, rows, D_MODEL,
+    mlp(&weights->fc1.weight[0][0], MIXER_SCALE(weights->fc1),
+        weights->fc1.bias, &weights->fc2.weight[0][0],
+        MIXER_SCALE(weights->fc2), weights->fc2.bias, x, y, rows, D_MODEL,
         FEATURE_MLP_HIDDEN);
 }
 
 void mlp_138(
     const struct mlp_138 *weights, const float *x, float *y, int rows
 ) {
-    mlp(&weights->fc1.weight[0][0], weights->fc1.bias,
-        &weights->fc2.weight[0][0], weights->fc2.bias, x, y, rows,
-        TOTAL_PATCHES, PATCH_MLP_HIDDEN);
+    mlp(&weights->fc1.weight[0][0], MIXER_SCALE(weights->fc1),
+        weights->fc1.bias, &weights->fc2.weight[0][0],
+        MIXER_SCALE(weights->fc2), weights->fc2.bias, x, y, rows, TOTAL_PATCHES,
+        PATCH_MLP_HIDDEN);
 }
 
 void gated_attention_10(
     const struct gated_attention_10 *weights, const float *x, float *y, int rows
 ) {
     gated_attention(
-        &weights->attn_layer.weight[0][0], weights->attn_layer.bias, x, y, rows,
-        REGISTER_TOKENS
+        &weights->attn_layer.weight[0][0], MIXER_SCALE(weights->attn_layer),
+        weights->attn_layer.bias, x, y, rows, REGISTER_TOKENS
     );
 }
 
@@ -228,8 +276,8 @@ void gated_attention_24(
     const struct gated_attention_24 *weights, const float *x, float *y, int rows
 ) {
     gated_attention(
-        &weights->attn_layer.weight[0][0], weights->attn_layer.bias, x, y, rows,
-        D_MODEL
+        &weights->attn_layer.weight[0][0], MIXER_SCALE(weights->attn_layer),
+        weights->attn_layer.bias, x, y, rows, D_MODEL
     );
 }
 
@@ -240,8 +288,8 @@ void gated_attention_138(
     int rows
 ) {
     gated_attention(
-        &weights->attn_layer.weight[0][0], weights->attn_layer.bias, x, y, rows,
-        TOTAL_PATCHES
+        &weights->attn_layer.weight[0][0], MIXER_SCALE(weights->attn_layer),
+        weights->attn_layer.bias, x, y, rows, TOTAL_PATCHES
     );
 }
 

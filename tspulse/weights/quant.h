@@ -21,9 +21,13 @@
 #define TSPULSE_QUANT_INT8
 /// The type of a mixer Linear's weights.
 typedef int8_t mixer_weight;
+/// A mixer Linear's scales, one per output row.
+#define MIXER_SCALE(member) ((member).scale)
 #else
 /// The type of a mixer Linear's weights.
 typedef float mixer_weight;
+/// A float mixer Linear has no scales.
+#define MIXER_SCALE(member) NULL
 #endif
 
 #endif

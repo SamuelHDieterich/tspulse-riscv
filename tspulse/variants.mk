@@ -12,13 +12,14 @@
 #   S_FLAGS_V     compiler flags for V, on both targets, so the host build keeps matching rv64 bit for bit
 #   S_HOST_FLAGS_V, S_RV64_FLAGS_V   compiler flags for V on one target
 #   S_NEWLIB_V    yes when V compiles newlib's math source into the rv64 program too, as the host build always does
+#   S_WEIGHTS_V   the generated weight set V builds with, as in int8 for build/generated/weights_int8.c, weights_int8_table.c and weights_int8.tdump; without it, the float set
 
 # ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀▀
 # ░█░░░█░█░█░█░█▀▀░░█░░█░█
 # ░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀
 
 # Listed in the order they appear in a build's name
-SETTINGS := LINEAR UNROLL MATH OUTPUTS EXP GELU
+SETTINGS := LINEAR UNROLL MATH OUTPUTS EXP GELU QUANT
 
 # The blocked kernel keeps each output's sum in the plain loop's order, so the result stays exact
 LINEAR ?= plain
@@ -71,6 +72,15 @@ GELU_DEFINES_tanh := -DGELU_TANH
 GELU_DEFINES_table := -DGELU_TABLE
 GELU_SOURCES_table := kernels/gelu/table.c
 
+# Int8 mixer weights with one float scale per output row change the result; the kernel is added beside `linear`, which still runs every Linear outside the mixers
+QUANT ?= off
+QUANT_NAME := quant
+QUANT_DEFAULT := off
+QUANT_VALUES := off w8a32
+QUANT_DEFINES_w8a32 := -DTSPULSE_QUANT_W8A32
+QUANT_SOURCES_w8a32 := kernels/qlinear/w8a32.c
+QUANT_WEIGHTS_w8a32 := int8
+
 # ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
 # ░▀▀█░█░█░█░█░█▀▄░█░░░█▀▀░▀▀█
 # ░▀▀▀░▀▀▀░▀▀▀░▀░▀░▀▀▀░▀▀▀░▀▀▀
@@ -95,6 +105,9 @@ variant_sources = $(filter-out $(VARIANT_REPLACED),$(1)) $(VARIANT_SOURCES)
 
 # Any setting whose value asks for newlib's math makes the rv64 build compile it
 VARIANT_NEWLIB := $(strip $(foreach s,$(SETTINGS),$($(s)_NEWLIB_$($(s)))))
+
+# The generated weight set's suffix, empty for the float set
+VARIANT_WEIGHTS := $(strip $(foreach s,$(SETTINGS),$($(s)_WEIGHTS_$($(s)))))
 
 VARIANT_DEFINES := $(foreach s,$(SETTINGS),$($(s)_DEFINES_$($(s))))
 

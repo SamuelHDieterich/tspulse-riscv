@@ -2,7 +2,8 @@
 # `tspulse-dump` is the program with the code that writes inner outputs, which `check-model` runs, and `tspulse` carries none of it
 # `tspulse-profile`, built for rv64 only, reads the instruction counter at the same hooks to count instructions per module
 # `make stack` compiles the program with `-fcallgraph-info=su`, which leaves a `.ci` file of stack frame sizes beside each object, and links nothing; `make TARGET=rv64` also builds them
-# `make check` runs the weight check and compares its dump with the one export-weights wrote from the safetensors file
+# `make check` runs the weight check and compares its dump with the one export-weights wrote from the safetensors file, weights_int8.tdump on a QUANT build
+# `make check-qlinear` (QUANT builds only) builds `check-qlinear` and runs it, on rv64 under Spike: the build's quantized Linear against blocked.c's `linear` on the same weights, bit for bit
 # `make approx-errors` (host only) builds `check-approx` and writes approx-errors.csv in the build's folder, as in build/host/approx-errors.csv, each exp and GELU approximation's error against double precision
 # Run inside the dev shell, after `download-weights`
 # Settings are Make variables listed in variants.mk, and `make settings` prints them with their values and defaults; `make LINEAR=blocked` would pick one
@@ -79,6 +80,12 @@ APPROX_SOURCES := checks/approx.c kernels/exp/table.c kernels/gelu/table.c
 APPROX_OBJECTS := $(APPROX_SOURCES:%.c=$(BUILD)/%.o)
 APPROX_NEW_OBJECTS := $(filter-out $(PROGRAM_OBJECTS),$(APPROX_OBJECTS))
 
+# The quantized Linear check links the build's QUANT kernel and blocked.c, never plain.c, whatever LINEAR says, since it compares against blocked.c's result
+# Like the approximation check, it is no part of BINARIES or all, and leaves out the objects the program already holds
+QLINEAR_SOURCES := checks/qlinear.c $(QUANT_SOURCES_$(QUANT)) kernels/linear/blocked.c
+QLINEAR_OBJECTS := $(QLINEAR_SOURCES:%.c=$(BUILD)/%.o)
+QLINEAR_NEW_OBJECTS := $(filter-out $(PROGRAM_OBJECTS),$(QLINEAR_OBJECTS))
+
 ifneq ($(NEWLIB_LINKED),)
 NEWLIB_OBJECTS := $(NEWLIB_FILES:%.c=$(BUILD)/newlib/%.o)
 endif
@@ -86,11 +93,14 @@ ifneq ($(TARGET),host)
 # Under pk the program carries its own _open, because pk reads open flags as Linux numbers
 PLATFORM_OBJECTS := $(BUILD)/io/pk_open.o
 endif
-GENERATED_SOURCES := $(GENERATED)/weights.c $(GENERATED)/weights_table.c
+# A setting's WEIGHTS entry picks the generated set, as in weights_int8.c, weights_int8_table.c and weights_int8.tdump
+WEIGHTS_STEM := weights$(if $(VARIANT_WEIGHTS),_$(VARIANT_WEIGHTS))
+GENERATED_SOURCES := $(GENERATED)/$(WEIGHTS_STEM).c $(GENERATED)/$(WEIGHTS_STEM)_table.c
 GENERATED_OBJECTS := $(GENERATED_SOURCES:$(GENERATED)/%.c=$(BUILD)/generated/%.o)
+GENERATED_DUMP := $(GENERATED)/$(WEIGHTS_STEM).tdump
 
 # The program needs only the weights, while the weight check also needs their table of names
-WEIGHTS_OBJECT := $(BUILD)/generated/weights.o
+WEIGHTS_OBJECT := $(BUILD)/generated/$(WEIGHTS_STEM).o
 
 # What the build compiles and links, fixed when the Makefile is read
 # A recipe's $(CFLAGS) can carry the target-specific -ffp-contract=off of the object it belongs to, so the stamp and build.json never read it there
@@ -130,7 +140,7 @@ endif
 # ░░█░░█▀█░█▀▄░█░█░█▀▀░░█░░▀▀█
 # ░░▀░░▀░▀░▀░▀░▀▀▀░▀▀▀░░▀░░▀▀▀
 
-.PHONY: all approx-errors check clean settings stack FORCE
+.PHONY: all approx-errors check check-qlinear clean settings stack FORCE
 
 # The rv64 build keeps the call-graph objects fresh too, so the stack frames `benchmark profile` reads never lag behind the sources
 ifeq ($(TARGET),rv64)
@@ -149,14 +159,14 @@ settings:
 stack: $(STACK_OBJECTS)
 
 # Run the check program: on the host directly, on rv64 under Spike
-check: $(BUILD)/check-weights $(GENERATED)/weights.tdump
+check: $(BUILD)/check-weights $(GENERATED_DUMP)
 ifeq ($(TARGET),host)
 	$(BUILD)/check-weights $(BUILD)/weights.tdump
 else
 	spike --isa=rv64gc_zicntr "$$RISCV_PK" $(BUILD)/check-weights $(BUILD)/weights.tdump
 endif
 # Pass only on 0 fail, 0 missing and 0 extra, because compare-reference exits 0 on missing records
-	status=0; compare-reference $(GENERATED)/weights.tdump $(BUILD)/weights.tdump --exact > $(BUILD)/compare.txt || status=$$?; \
+	status=0; compare-reference $(GENERATED_DUMP) $(BUILD)/weights.tdump --exact > $(BUILD)/compare.txt || status=$$?; \
 	grep -E '^[0-9]+ pass, ' $(BUILD)/compare.txt; \
 	[ $$status -eq 0 ] && grep -Eq '^[0-9]+ pass, 0 fail, 0 missing, 0 extra$$' $(BUILD)/compare.txt
 
@@ -167,6 +177,19 @@ endif
 
 approx-errors: $(BUILD)/check-approx
 	$(BUILD)/check-approx $(BUILD)/approx-errors.csv
+
+# Refused before anything builds: QUANT=off has no quantized kernel to check
+ifneq ($(filter check-qlinear,$(MAKECMDGOALS)),)
+$(if $(filter $(QUANT_DEFAULT),$(QUANT)),$(error check-qlinear needs a QUANT build, got QUANT=$(QUANT)))
+endif
+
+# Run the quantized Linear check: on the host directly, on rv64 under Spike
+check-qlinear: $(BUILD)/check-qlinear
+ifeq ($(TARGET),host)
+	$(BUILD)/check-qlinear
+else
+	spike --isa=rv64gc_zicntr "$$RISCV_PK" $(BUILD)/check-qlinear
+endif
 
 clean:
 	rm -rf build
@@ -180,6 +203,10 @@ $(BUILD)/check-weights: $(OBJECTS) $(GENERATED_OBJECTS) $(PLATFORM_OBJECTS)
 
 # The newlib objects come before -lm, so the tables and the libm rows use the program's erff and expf, not glibc's
 $(BUILD)/check-approx: $(APPROX_OBJECTS) $(NEWLIB_OBJECTS) $(PLATFORM_OBJECTS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+# Linked with $(LDLIBS) like the program, so any libm call a QUANT kernel makes resolves on the host
+$(BUILD)/check-qlinear: $(QLINEAR_OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 # The newlib objects come before -lm, so the linker finds erff and expf in them first
@@ -197,14 +224,14 @@ $(GENERATED_OBJECTS): $(BUILD)/generated/%.o: $(GENERATED)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Werror -c $< -o $@
 
-$(OBJECTS) $(APPROX_NEW_OBJECTS) $(PROGRAM_OBJECTS) $(PLATFORM_OBJECTS): $(BUILD)/%.o: %.c
+$(OBJECTS) $(APPROX_NEW_OBJECTS) $(QLINEAR_NEW_OBJECTS) $(PROGRAM_OBJECTS) $(PLATFORM_OBJECTS): $(BUILD)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 $(foreach d,$(BUILD) $(BUILD)/dump $(BUILD)/profile $(BUILD)/stack,$(d)/$(REVIN_FILE:.c=.o)): CFLAGS += $(REVIN_FLAGS)
 
 # Every object is rebuilt when the stamp of the build's flags and files changes
-$(OBJECTS) $(APPROX_NEW_OBJECTS) $(PROGRAM_OBJECTS) $(DUMP_OBJECTS) $(PROFILE_OBJECTS) $(STACK_OBJECTS) $(NEWLIB_OBJECTS) $(PLATFORM_OBJECTS) $(GENERATED_OBJECTS): $(BUILD)/flags
+$(OBJECTS) $(APPROX_NEW_OBJECTS) $(QLINEAR_NEW_OBJECTS) $(PROGRAM_OBJECTS) $(DUMP_OBJECTS) $(PROFILE_OBJECTS) $(STACK_OBJECTS) $(NEWLIB_OBJECTS) $(PLATFORM_OBJECTS) $(GENERATED_OBJECTS): $(BUILD)/flags
 
 $(DUMP_OBJECTS): $(BUILD)/dump/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -294,6 +321,6 @@ $(GENERATED)/stamp: $(SAFETENSORS_PREREQ) $(GENERATED)/generator
 	export-weights "$<" $(GENERATED)
 	touch $@
 
-$(GENERATED)/weights.c $(GENERATED)/weights_table.c $(GENERATED)/weights.tdump: $(GENERATED)/stamp ;
+$(foreach w,weights weights_int8,$(GENERATED)/$(w).c $(GENERATED)/$(w)_table.c $(GENERATED)/$(w).tdump): $(GENERATED)/stamp ;
 
--include $(OBJECTS:.o=.d) $(APPROX_NEW_OBJECTS:.o=.d) $(PROGRAM_OBJECTS:.o=.d) $(DUMP_OBJECTS:.o=.d) $(PROFILE_OBJECTS:.o=.d) $(STACK_OBJECTS:.o=.d) $(NEWLIB_OBJECTS:.o=.d) $(PLATFORM_OBJECTS:.o=.d) $(GENERATED_OBJECTS:.o=.d)
+-include $(OBJECTS:.o=.d) $(APPROX_NEW_OBJECTS:.o=.d) $(QLINEAR_NEW_OBJECTS:.o=.d) $(PROGRAM_OBJECTS:.o=.d) $(DUMP_OBJECTS:.o=.d) $(PROFILE_OBJECTS:.o=.d) $(STACK_OBJECTS:.o=.d) $(NEWLIB_OBJECTS:.o=.d) $(PLATFORM_OBJECTS:.o=.d) $(GENERATED_OBJECTS:.o=.d)
