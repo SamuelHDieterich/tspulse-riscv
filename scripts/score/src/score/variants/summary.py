@@ -12,12 +12,14 @@ from statistics import fmean
 from typing import get_args
 
 # Internal
+from score.benchmark.results import read_identity
 from score.benchmark.scope import Scope, Series, read_series
 from score.benchmark.tables import ACCURACY_TABLE, INSTRUCTIONS_TABLE
 from score.benchmark.units import _counted_windows
 from score.build_record import (
     BASELINE_NAME,
     BUILD_FILE,
+    DEFAULT_STRIDE,
     BuildRecordError,
     read_build,
 )
@@ -38,9 +40,11 @@ from score.variants.formula import evaluate_formula
 from score.variants.listing import VariantError
 from score.variants.state import (
     COUNT_WINDOWS,
+    build_stride,
     label_folder,
     missing_stages,
     read_reference_windows,
+    stack_name,
     tables_folder,
 )
 from score.variants.summary_record import (
@@ -314,13 +318,13 @@ def _profile(profile: Path) -> tuple[Cycles, MemoryBytes, int]:
     )
 
 
-def _build(profile: Path) -> BuildSource | None:
-    """Take the build's commit, tree and dirty flag from the profile's `build.json`.
+def _build(folder: Path) -> BuildSource | None:
+    """Take the build's commit, tree and dirty flag from a `build.json`.
 
     Parameters
     ----------
-    profile : Path
-        The label's `profile` folder in its tracked results.
+    folder : Path
+        The folder holding the `build.json`: the label's `profile` folder in its tracked results, or for a variant with a stride the label's results folder itself.
 
     Returns
     -------
@@ -333,10 +337,10 @@ def _build(profile: Path) -> BuildSource | None:
         When the record can't be used as a build record.
     """
 
-    if not (profile / BUILD_FILE).is_file():
+    if not (folder / BUILD_FILE).is_file():
         return None
     try:
-        record = read_build(profile)
+        record = read_build(folder)
     except BuildRecordError as error:
         raise ValueError(str(error)) from error
     return BuildSource(commit=record.commit, tree=record.tree, dirty=record.dirty)
@@ -522,11 +526,27 @@ def variant_summary(
     reference_pass = sum(window.ok for window in windows)
     reference_fail = len(windows) - reference_pass
     exactness = measure_exactness(data, label, working)
-    cycles, memory, traffic = _profile(tables / WORK_SUBFOLDER)
+
+    # A variant with a stride runs its stack's model code on every N-th window, so its profile is the stack's with the per-window costs divided by N
+    identity = read_identity(label_folder(data, label))
+    stride = build_stride(identity)
+    if stride == DEFAULT_STRIDE:
+        profile_from = None
+        cycles, memory, traffic = _profile(tables / WORK_SUBFOLDER)
+    else:
+        profile_from = stack_name(identity)
+        cycles, memory, traffic = _profile(
+            tables_folder(top, profile_from) / WORK_SUBFOLDER
+        )
+        cycles = Cycles(
+            low=round(cycles.low / stride), high=round(cycles.high / stride)
+        )
+        traffic = round(traffic / stride)
     summary = Summary(
         name=variant.name,
         settings=dict(variant.entry.settings),
-        build=_build(tables / WORK_SUBFOLDER),
+        # Without a profile of its own, the build record sits in the label's results folder
+        build=_build(tables if profile_from is not None else tables / WORK_SUBFOLDER),
         missing=_missing(top, data, label, working, exactness),
         verdict=_verdict(exactness, reference_fail, reference_pass),
         exactness=ExactnessCounts(
@@ -538,6 +558,7 @@ def variant_summary(
         cycles=cycles,
         memory_bytes=memory,
         traffic_bytes=traffic,
+        profile_from=profile_from,
         vus_pr=_vus(tables),
     )
     return summary, exactness

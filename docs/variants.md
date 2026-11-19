@@ -31,6 +31,7 @@ Each variant goes through these stages, one variant after the other:
 - **run**: `benchmark run` with the `screen` scope on the host and the `middle` counted windows under Spike, the same settings for every variant;
 - **collect**: `benchmark collect --against baseline`;
 - **profile**: `benchmark profile` on its default windows;
+  a variant with a stride is not profiled: its stage only logs `profile: derived from <stack>` and copies the rv64 build's `build.json` to `benchmark/results/<label>/build.json`;
 - **summary**: compares the variant's per-window errors with the baseline's, text for text, and writes `summary.json`.
 
 A stage that fails is logged as a `problem:` line, the variant's later stages are skipped, and the next variant starts.
@@ -126,7 +127,7 @@ A field that is empty or has nothing to hold is left out, and so is an object or
 
 - `name` and `settings`: the variant's build name and its settings, in the list's order;
 - `build`: the `commit` the build was made from, its `tree`, and whether the tree was `dirty`, from the profile's `build.json`;
-- `missing`: what the label lacks, among `reference check`, `run`, `collect`, `collect found N problems`, `profile`, `N series left out`, `N exactness problems` and `unreadable files`. A variant that has not been run has `["not run"]`. A summary without `missing` is done;
+- `missing`: what the label lacks, among `reference check`, `run`, `collect`, `collect found N problems`, `profile` (for a variant with a stride, `stack profile` and `build record`), `N series left out`, `N exactness problems` and `unreadable files`. A variant that has not been run has `["not run"]`. A summary without `missing` is done;
 - `verdict`: `identical` when at least one window was compared, none differs, no series was left out and the comparison had no problem. Otherwise `within-tolerance` when every reference window passed, and `beyond-tolerance` when one did not. The baseline's is `reference`;
 - `exactness`: `windows_compared`, the windows whose error row both the variant and the baseline hold, over the variant's selected series, and `windows_differing`, those whose row differs as text. Series with missing units are left out of both and counted in `missing`;
 - `reference`: how many of the reference windows passed (`pass`) and failed (`fail`);
@@ -134,4 +135,5 @@ A field that is empty or has nothing to hold is left out, and so is an object or
 - `cycles`: the `low` and `high` ends of the cycle range of the mean window in `profile/cycles.csv`, over all classes;
 - `memory_bytes`: from `profile/memory.csv`, the `weights`, the `.text` section (`text`), the sum of the static buffers (`static`), the stack's worst path (`stack`) and the sum of the heap formulas at one channel (`heap_per_channel`);
 - `traffic_bytes`: `total_bytes` of the mean window in `profile/traffic.csv`;
+- `profile_from`: only for a variant with a stride, which is not profiled. Its `cycles`, `traffic_bytes` and `memory_bytes` are those of the stack it sits on (the build name without `+stride-N`), the first two divided by the stride, and `build` comes from its own `build.json`;
 - `vus_pr`: for the heads `time`, `fft`, `forecast` and `ensemble`, the mean `value` of the VUS-PR over the series, in the `screen` scope, of `accuracy.csv`, the mean `difference` from the baseline and the most negative one, `worst`, the series that got worst.

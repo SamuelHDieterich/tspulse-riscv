@@ -5,6 +5,7 @@
 # ░▀▀▀░▀▀▀░▀▀░░▀░▀░▀░▀░▀░▀░▀▀▀░▀▀▀░▀▀▀
 
 # Built-in
+import shutil
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -21,7 +22,7 @@ from score.benchmark.run import EXIT_INTERRUPTED, run
 from score.benchmark.scope import Series
 
 # Internal
-from score.build_record import BASELINE_NAME
+from score.build_record import BASELINE_NAME, BUILD_FILE, DEFAULT_STRIDE
 from score.profile.cli import profile
 from score.spike_check import CLEAN_BINARY
 from score.variants.building import ResolvedVariant, build_variant
@@ -33,6 +34,7 @@ from score.variants.state import (
     SCOPES,
     Selection,
     binaries_problem,
+    build_stride,
     collect_missing,
     delete_for_redo,
     is_done,
@@ -42,6 +44,7 @@ from score.variants.state import (
     read_reference_hashes,
     read_selection,
     run_missing,
+    stack_name,
     tables_folder,
     write_collect_record,
     write_selection,
@@ -424,12 +427,28 @@ def run_variant(
         if collected.problems:
             _problem(log, outcome, f"collect found {collected.problems} problems")
 
-    # Step 8: the profile, kept while the rv64 binary is the one its tables were made with. An unreadable build.json counts as no profile, so it is made again
+    # Step 8: the profile, kept while the rv64 binary is the one its tables were made with
+    # An unreadable build.json counts as no profile, so it is made again
     try:
         profile_hash = read_profile_hash(tables)
     except (OSError, ValueError):
         profile_hash = None
-    if profile_hash == built.rv64.sha256[CLEAN_BINARY]:
+    try:
+        identity = read_identity(folder)
+    except (OSError, ValueError) as error:
+        _problem(log, outcome, f"cannot read the label's identity: {error}")
+        return outcome
+    # A stride variant takes its stack's profile; only its build record is copied
+    if build_stride(identity) != DEFAULT_STRIDE:
+        try:
+            stack = stack_name(identity)
+            log.line(f"{LINE_PREFIX}: {VariantStage.PROFILE}: derived from {stack}")
+            tables.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(built.rv64_folder / BUILD_FILE, tables / BUILD_FILE)
+        except (OSError, ValueError) as error:
+            _problem(log, outcome, f"cannot derive the profile: {error}")
+            return outcome
+    elif profile_hash == built.rv64.sha256[CLEAN_BINARY]:
         _skip(
             VariantStage.PROFILE, "the profile's build.json holds this rv64 binary", log
         )

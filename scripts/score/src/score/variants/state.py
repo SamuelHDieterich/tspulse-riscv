@@ -13,6 +13,7 @@ from typing import Any
 
 # Internal
 from score.benchmark.results import LabelIdentity, find_results, read_identity
+from score.benchmark.run import RV64_TARGET
 from score.benchmark.scope import Scope, Series
 from score.benchmark.tables import ACCURACY_TABLE, INSTRUCTIONS_TABLE, TABLES_FOLDER
 from score.benchmark.units import (
@@ -21,7 +22,14 @@ from score.benchmark.units import (
     accuracy_units,
     instruction_units,
 )
-from score.build_record import BUILD_FILE
+from score.build_record import (
+    BUILD_FILE,
+    DEFAULT_STRIDE,
+    NAME_KEY,
+    SETTINGS_KEY,
+    STRIDE_SETTING,
+)
+from score.build_record import build_stride as stride_from_settings
 from score.layout import BENCHMARK_FOLDER
 from score.profile.cli import WORK_SUBFOLDER
 from score.spike_check import CLEAN_BINARY, HOST_ROLE, RV64_ROLE
@@ -52,6 +60,10 @@ BUILD_SHA256_KEY = "sha256"
 
 # What `missing_stages` says when a label's files can't be read
 MISSING_UNREADABLE = "unreadable files"
+
+# What `missing_stages` says of a variant with a stride: its stack's profile and its own copy of the build record, in place of a profile
+MISSING_STACK_PROFILE = "stack profile"
+MISSING_BUILD_RECORD = "build record"
 
 
 # ░█▀▀░█░░░█▀█░█▀▀░█▀▀░█▀▀░█▀▀
@@ -544,6 +556,53 @@ def binaries_problem(folder: Path, host_sha256: str, rv64_sha256: str) -> str | 
     return None
 
 
+def build_stride(identity: LabelIdentity | None) -> int:
+    """Read the stride of the rv64 build a label fixed.
+
+    Parameters
+    ----------
+    identity : LabelIdentity or None
+        The label's identity.
+
+    Returns
+    -------
+    int
+        The build's stride, `DEFAULT_STRIDE` when there is no identity, no build record or no `stride` setting.
+    """
+
+    if identity is None or identity.build is None:
+        return DEFAULT_STRIDE
+    return stride_from_settings(identity.build[RV64_TARGET][SETTINGS_KEY])
+
+
+def stack_name(identity: LabelIdentity) -> str:
+    """Name the stack a variant with a stride sits on.
+
+    Parameters
+    ----------
+    identity : LabelIdentity
+        The identity of a label whose build has a stride other than 1 and a build record.
+
+    Returns
+    -------
+    str
+        The rv64 build's name without its `+stride-N`, which is also the folder of the stack's results. The label is not used, since it may carry a suffix.
+
+    Raises
+    ------
+    ValueError
+        When the build's name doesn't end with `+stride-N`.
+    """
+
+    name = identity.build[RV64_TARGET][NAME_KEY]
+    suffix = f"+{STRIDE_SETTING}-{build_stride(identity)}"
+    if not name.endswith(suffix):
+        raise ValueError(
+            f"the rv64 build {name} has a stride but its name lacks {suffix}"
+        )
+    return name.removesuffix(suffix)
+
+
 def missing_stages(
     top: Path, data: Path, label: str, working: list[Series]
 ) -> list[str]:
@@ -563,7 +622,7 @@ def missing_stages(
     Returns
     -------
     list[str]
-        One short text per missing part: the reference check, the run, the collect, which says how many problems the last one found when it did read the label's units, and the profile. Empty when none is missing. Anything unreadable gives `MISSING_UNREADABLE` alone.
+        One short text per missing part: the reference check, the run, the collect, which says how many problems the last one found when it did read the label's units, and the profile, or for a variant with a stride its stack's profile and its build record. Empty when none is missing. Anything unreadable gives `MISSING_UNREADABLE` alone.
     """
 
     folder = label_folder(data, label)
@@ -588,7 +647,8 @@ def missing_stages(
     # Step 2: without an identity or a selection nothing was run, so nothing was collected, and the profile has no binary to match
     if identity is None or selection is None:
         missing += [VariantStage.RUN, VariantStage.COLLECT]
-        if profile is None:
+        # A variant with a stride never gets a profile, and its name carries `+stride-N`
+        if profile is None and f"+{STRIDE_SETTING}-" not in label:
             missing.append(VariantStage.PROFILE)
         return missing
 
@@ -602,9 +662,19 @@ def missing_stages(
     elif collect is not None and collect.problems:
         missing.append(f"collect found {collect.problems} problems")
 
-    # Step 5: the profile was made with the rv64 binary the label fixed
-    if identity.sha256.get(RV64_ROLE) != profile:
-        missing.append(VariantStage.PROFILE)
+    # Step 5: the profile was made with the rv64 binary the label fixed. A variant with a stride has none: it needs its stack's tables and its own copy of the build record
+    if build_stride(identity) == DEFAULT_STRIDE:
+        if identity.sha256.get(RV64_ROLE) != profile:
+            missing.append(VariantStage.PROFILE)
+        return missing
+    try:
+        stack_profile = read_profile_hash(tables_folder(top, stack_name(identity)))
+    except (OSError, ValueError):
+        return [MISSING_UNREADABLE]
+    if stack_profile is None:
+        missing.append(MISSING_STACK_PROFILE)
+    if not (tables / BUILD_FILE).is_file():
+        missing.append(MISSING_BUILD_RECORD)
     return missing
 
 

@@ -22,7 +22,8 @@ from score.spike_check import _sha256
 # The record's file name, in each build folder
 BUILD_FILE = "build.json"
 
-# The keys a build's record uses to name its settings, and the ones that hold the aggregation length and the stride
+# The keys a build's record uses for its name and its settings, and the ones that hold the aggregation length and the stride
+NAME_KEY = "name"
 SETTINGS_KEY = "settings"
 AGGREGATION_SETTING = "aggregation"
 STRIDE_SETTING = "stride"
