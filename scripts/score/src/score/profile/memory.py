@@ -113,7 +113,7 @@ def weights_row(elf: Path, weights_table: Path) -> MemoryRow:
     elf : Path
         The linked program.
     weights_table : Path
-        The generated `weights_table.c`.
+        The generated weight table the build links, `weights_table.c` or `weights_int8_table.c`.
 
     Returns
     -------
@@ -298,7 +298,7 @@ def memory_rows(
     table : FunctionTable
         The functions of `elf`.
     weights_table : Path
-        The generated `weights_table.c`.
+        The generated weight table the build links, `weights_table.c` or `weights_int8_table.c`.
     stack_folder : Path
         The `.ci` files of the same objects.
     source_folder : Path

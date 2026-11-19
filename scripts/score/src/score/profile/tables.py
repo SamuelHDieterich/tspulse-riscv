@@ -440,7 +440,7 @@ def write_tables(
     functions : FunctionTable
         The functions of `elf`.
     weights_table : Path
-        The generated `weights_table.c`.
+        The generated weight table the build links, `weights_table.c` or `weights_int8_table.c`.
     stack_folder : Path
         The `.ci` files of the clean build.
     source_folder : Path

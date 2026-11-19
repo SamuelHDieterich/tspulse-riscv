@@ -78,8 +78,24 @@ ROWS_ROLE = "rows"
 CLEAN_ROLE = "clean"
 PROFILE_ROLE = "profile"
 
-# The generated weight table's name in the generated folder, and where the `.ci` files sit in the build folder
-WEIGHTS_TABLE = "weights_table.c"
+# The build setting that picks the weight table, and its value for a build record made before the setting existed, which could only link the float table
+QUANT_SETTING = "quant"
+QUANT_OFF = "off"
+QUANT_W8A32 = "w8a32"
+QUANT_W8A8 = "w8a8"
+
+# The generated weight tables, by their names in the generated folder
+FLOAT_WEIGHTS_TABLE = "weights_table.c"
+INT8_WEIGHTS_TABLE = "weights_int8_table.c"
+
+# The generated weight table each `quant` setting links
+WEIGHTS_TABLES = {
+    QUANT_OFF: FLOAT_WEIGHTS_TABLE,
+    QUANT_W8A32: INT8_WEIGHTS_TABLE,
+    QUANT_W8A8: INT8_WEIGHTS_TABLE,
+}
+
+# Where the `.ci` files sit in the build folder
 STACK_FOLDER = "stack"
 
 # The vector extension, as a letter of the base ISA, as an extension of its own, and as a prefix of the `zv*` subsets
@@ -91,6 +107,35 @@ BASE_ISA_PREFIX = "rv64"
 # ░█▄█░█▀▀░▀█▀░█░█░█▀█░█▀▄░█▀▀
 # ░█░█░█▀▀░░█░░█▀█░█░█░█░█░▀▀█
 # ░▀░▀░▀▀▀░░▀░░▀░▀░▀▀▀░▀▀░░▀▀▀
+
+
+def _weights_table_name(settings: dict[str, str]) -> str:
+    """Pick the generated weight table a build links.
+
+    Parameters
+    ----------
+    settings : dict[str, str]
+        The build record's settings.
+
+    Returns
+    -------
+    str
+        The table's file name in the generated folder.
+
+    Raises
+    ------
+    typer.Exit
+        If the `quant` value is not one the table mapping knows.
+    """
+
+    # A record made before QUANT existed has no such key, and those builds linked the float table
+    quant = settings.get(QUANT_SETTING, QUANT_OFF)
+    if quant not in WEIGHTS_TABLES:
+        typer.echo(
+            f"Unknown {QUANT_SETTING} setting in the build record: {quant}", err=True
+        )
+        raise typer.Exit(EXIT_REFUSED)
+    return WEIGHTS_TABLES[quant]
 
 
 def _parse_windows(text: str) -> list[int]:
@@ -276,7 +321,7 @@ def profile(
 
     # The tables read the `.ci` files and the weight table after the runs, and an old build folder may lack them, which would waste the Spike time
     stack_folder = build_folder / STACK_FOLDER
-    weights_table = generated_folder(source) / WEIGHTS_TABLE
+    weights_table = generated_folder(source) / _weights_table_name(record.settings)
     if not any(stack_folder.rglob("*.ci")):
         typer.echo(
             f"No .ci file under {stack_folder}: run `make TARGET=rv64` in tspulse/.",

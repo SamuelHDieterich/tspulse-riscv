@@ -19,7 +19,7 @@ from score.profile.symbols import NM
 # ░█░░░█░█░█░█░▀▀█░░█░░█▀█░█░█░░█░░▀▀█
 # ░▀▀▀░▀▀▀░▀░▀░▀▀▀░░▀░░▀░▀░▀░▀░░▀░░▀▀▀
 
-# The weights are stored as 32-bit floats
+# A float weight is a 32-bit float
 FLOAT_BYTES = 4
 
 # The symbol that holds every tensor, in `.rodata`
@@ -29,8 +29,19 @@ WEIGHTS_SYMBOL = "TSPULSE_WEIGHTS"
 NM_ARGUMENTS = ("--print-size",)
 NM_FIELDS_WITH_SIZE = 4
 
-# A table row: `{ "name", (const float *)&..., <rank>, { <dims> } },`
-ENTRY_LINE = re.compile(r'^\s*\{\s*"([^"]+)",.*,\s*\d+,\s*\{([\d,\s]+)\}\s*\}')
+# The text of a table row's column that holds no pointer
+NULL_COLUMN = "NULL"
+
+# An int8 weight is one byte, and each of its output rows carries one 32-bit float scale
+INT8_BYTES = 1
+SCALE_BYTES = 4
+
+# A table row: `{ "name", (const float *)&..., <rank>, { <dims> } },`.
+# The int8 table's rows add two columns after the dimensions, `(const int8_t *)&..., <scale>` for a quantized tensor and `NULL, NULL` for a float one
+ENTRY_LINE = re.compile(
+    r'^\s*\{\s*"(?P<name>[^"]+)",.*,\s*\d+,\s*\{(?P<dims>[\d,\s]+)\}'
+    r"(?:,\s*(?P<q>\(const int8_t \*\)[^,]+|NULL),\s*(?:[^,}]+|NULL))?\s*\}"
+)
 
 # Tensors of the weights table by name, in bytes
 TensorSizes = dict[str, int]
@@ -42,7 +53,7 @@ TensorSizes = dict[str, int]
 
 
 def read_tensor_sizes(table: Path) -> TensorSizes:
-    """Read each tensor's size from the generated `weights_table.c`.
+    """Read each tensor's size from the generated `weights_table.c` or `weights_int8_table.c`.
 
     Parameters
     ----------
@@ -52,7 +63,7 @@ def read_tensor_sizes(table: Path) -> TensorSizes:
     Returns
     -------
     TensorSizes
-        Bytes of each tensor, as 4 bytes per element.
+        Bytes of each tensor: 4 per element for a float one, and for a quantized one (its row holds the `(const int8_t *)` cast) 1 per element plus 4 per output row for the scales.
 
     Raises
     ------
@@ -65,11 +76,19 @@ def read_tensor_sizes(table: Path) -> TensorSizes:
         match = ENTRY_LINE.match(line)
         if match is None:
             continue
-        name = match.group(1)
+        name = match.group("name")
         if name in sizes:
             raise ProfileError(f"{table}: tensor {name} appears twice")
-        dimensions = [int(part) for part in match.group(2).split(",") if part.strip()]
-        sizes[name] = math.prod(dimensions) * FLOAT_BYTES
+        dimensions = [
+            int(part) for part in match.group("dims").split(",") if part.strip()
+        ]
+        if match.group("q") not in (None, NULL_COLUMN):
+            # One scale per output row, which is the first dimension
+            sizes[name] = (
+                math.prod(dimensions) * INT8_BYTES + dimensions[0] * SCALE_BYTES
+            )
+        else:
+            sizes[name] = math.prod(dimensions) * FLOAT_BYTES
     if not sizes:
         raise ProfileError(f"{table}: no tensor found")
     return sizes
