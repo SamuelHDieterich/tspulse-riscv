@@ -68,6 +68,8 @@ static inline void mixer_linear(
 ) {
 #if defined(TSPULSE_QUANT_W8A32)
     linear_w8a32(x, weight, scale, bias, y, rows, in, out);
+#elif defined(TSPULSE_QUANT_W8A8)
+    linear_w8a8(x, weight, scale, bias, y, rows, in, out);
 #else
     // Float weights carry no scales
     (void)scale;

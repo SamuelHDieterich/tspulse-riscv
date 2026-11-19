@@ -19,7 +19,7 @@ From `tspulse/`, inside the dev shell and after `download-weights`:
 ```bash
 make                    # builds check-weights, tspulse and tspulse-dump for the host
 make check              # runs the weight check and compares its dump with the one `export-weights` wrote from the safetensors file, bit for bit
-make check-qlinear      # QUANT builds only: checks the quantized Linear kernel against the float one on the same weights, bit for bit
+make check-qlinear      # QUANT builds only: checks the quantized Linear kernel against a reference bit for bit: `blocked.c`'s `linear` on the same weights for w8a32, a plain integer loop for w8a8
 make approx-errors      # host only: writes each exp and GELU approximation's error against double precision to `build/host/approx-errors.csv`
 make TARGET=rv64        # the same programs for RISC-V
 make TARGET=rv64 check  # the weight check under Spike

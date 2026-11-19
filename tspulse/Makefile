@@ -3,7 +3,7 @@
 # `tspulse-profile`, built for rv64 only, reads the instruction counter at the same hooks to count instructions per module
 # `make stack` compiles the program with `-fcallgraph-info=su`, which leaves a `.ci` file of stack frame sizes beside each object, and links nothing; `make TARGET=rv64` also builds them
 # `make check` runs the weight check and compares its dump with the one export-weights wrote from the safetensors file, weights_int8.tdump on a QUANT build
-# `make check-qlinear` (QUANT builds only) builds `check-qlinear` and runs it, on rv64 under Spike: the build's quantized Linear against blocked.c's `linear` on the same weights, bit for bit
+# `make check-qlinear` (QUANT builds only) builds `check-qlinear` and runs it, on rv64 under Spike: the build's quantized Linear against a reference on the same weights, bit for bit
 # `make approx-errors` (host only) builds `check-approx` and writes approx-errors.csv in the build's folder, as in build/host/approx-errors.csv, each exp and GELU approximation's error against double precision
 # Run inside the dev shell, after `download-weights`
 # Settings are Make variables listed in variants.mk, and `make settings` prints them with their values and defaults; `make LINEAR=blocked` would pick one
@@ -80,7 +80,7 @@ APPROX_SOURCES := checks/approx.c kernels/exp/table.c kernels/gelu/table.c
 APPROX_OBJECTS := $(APPROX_SOURCES:%.c=$(BUILD)/%.o)
 APPROX_NEW_OBJECTS := $(filter-out $(PROGRAM_OBJECTS),$(APPROX_OBJECTS))
 
-# The quantized Linear check links the build's QUANT kernel and blocked.c, never plain.c, whatever LINEAR says, since it compares against blocked.c's result
+# The quantized Linear check links the build's QUANT kernel and blocked.c, never plain.c, whatever LINEAR says, since the w8a32 check compares against blocked.c's result
 # Like the approximation check, it is no part of BINARIES or all, and leaves out the objects the program already holds
 QLINEAR_SOURCES := checks/qlinear.c $(QUANT_SOURCES_$(QUANT)) kernels/linear/blocked.c
 QLINEAR_OBJECTS := $(QLINEAR_SOURCES:%.c=$(BUILD)/%.o)

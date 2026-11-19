@@ -76,10 +76,13 @@ GELU_SOURCES_table := kernels/gelu/table.c
 QUANT ?= off
 QUANT_NAME := quant
 QUANT_DEFAULT := off
-QUANT_VALUES := off w8a32
+QUANT_VALUES := off w8a32 w8a8
 QUANT_DEFINES_w8a32 := -DTSPULSE_QUANT_W8A32
 QUANT_SOURCES_w8a32 := kernels/qlinear/w8a32.c
 QUANT_WEIGHTS_w8a32 := int8
+QUANT_DEFINES_w8a8 := -DTSPULSE_QUANT_W8A8
+QUANT_SOURCES_w8a8 := kernels/qlinear/w8a8.c
+QUANT_WEIGHTS_w8a8 := int8
 
 # ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
 # ░▀▀█░█░█░█░█░█▀▄░█░░░█▀▀░▀▀█
