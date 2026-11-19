@@ -34,6 +34,7 @@ HEADS: tuple[Head, ...] = get_args(Head)
 
 # How many rows at the end of each 512-row window get graded. They are split into 8-row pieces, each hidden once, and the errors are averaged into one grade.
 # The default of 32 hides 4 pieces. IBM's 96 hides 12, which triples the work for `time` and `fft`.
+# This is the baseline's value and the default of `build_pipeline`; a build with fewer pieces passes its own.
 AGGREGATION_LENGTH = 96
 
 # Averages each score with its neighbours, so the line is less jittery. `forecast` skips this. Same as the default.
@@ -244,6 +245,7 @@ def build_pipeline[P: CapturingPipeline](
     model: TSPulseForReconstruction,
     channels: list[str],
     batch_size: int,
+    aggregation_length: int = AGGREGATION_LENGTH,
     **extra: Any,
 ) -> P:
     """Set up a capturing pipeline with every head and IBM's benchmark values, the one definition the scores are made with.
@@ -258,6 +260,8 @@ def build_pipeline[P: CapturingPipeline](
         The series' channel columns.
     batch_size : int
         How many windows the model handles at once.
+    aggregation_length : int
+        How many rows at the end of each window get graded. IBM pads each head's scores by half of it, so it must be the length the errors were made with.
     **extra : Any
         Arguments only the subclass takes.
 
@@ -272,7 +276,7 @@ def build_pipeline[P: CapturingPipeline](
         model,
         target_columns=channels,
         prediction_mode=list(HEADS),
-        aggregation_length=AGGREGATION_LENGTH,
+        aggregation_length=aggregation_length,
         smoothing_length=SMOOTHING_LENGTH,
         aggr_function=AGGREGATION_FUNCTION,
         least_significant_scale=LEAST_SIGNIFICANT_SCALE,

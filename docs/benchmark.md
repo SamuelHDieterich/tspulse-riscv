@@ -27,7 +27,7 @@ Results go to `$TSPULSE_DATA/results/benchmark/<label>/`, and `collect` writes t
 - `accuracy.csv`: VUS-PR, VUS-ROC and AUC-PR per series, scope and head, beside the Python baseline's and IBM's values;
 - `instructions.csv`: the instructions of each counted window.
 
-`collect` can run during a run: it scores the series that are complete and lists the rest. `--against OTHER` adds each row's difference from another label.
+`collect` can run during a run: it scores the series that are complete and lists the rest. It scores each label with the aggregation length of its build (96 when the build sets none). `--against OTHER` adds each row's difference from another label.
 Each command exits 1 when a unit failed or differed or a series could not be scored. `collect` and `all` also exit 1 when a saved `result.json` can't be read or came from other binaries. Each of these is listed as a `problem:` line.
 
 ## Profiling a build

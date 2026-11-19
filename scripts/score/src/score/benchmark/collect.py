@@ -27,6 +27,7 @@ from score.benchmark.results import (
     find_results,
     read_identity,
 )
+from score.benchmark.run import RV64_TARGET
 from score.benchmark.scope import Scope, Series, read_series, scope_range
 from score.benchmark.scoring import (
     ScopeScore,
@@ -60,8 +61,9 @@ from score.benchmark.units import (
     accuracy_units,
     instruction_units,
 )
+from score.build_record import SETTINGS_KEY, build_aggregation
 from score.layout import BENCHMARK_FOLDER, MODEL_FOLDER
-from score.pipeline import load_model, load_series
+from score.pipeline import AGGREGATION_LENGTH, load_model, load_series
 from score.series_check import _find_series
 from score.spike_check import _top_level
 
@@ -227,6 +229,12 @@ def _score_series(
                 if csv_path is None:
                     raise ValueError(f"no series {one.stem} under {data}")
                 frame = load_series(csv_path)
+            # IBM pads each head's scores by half the aggregation length, so the replay must use the length the errors were made with
+            aggregation_length = (
+                AGGREGATION_LENGTH
+                if identity.build is None
+                else build_aggregation(identity.build[RV64_TARGET][SETTINGS_KEY])
+            )
             if one.channels not in models:
                 models[one.channels] = load_model(data / MODEL_FOLDER, one.channels)
             scored.append(
@@ -239,6 +247,7 @@ def _score_series(
                     start,
                     stop,
                     destination,
+                    aggregation_length=aggregation_length,
                 )
             )
         except (OSError, ValueError, RuntimeError, KeyError, IndexError) as error:

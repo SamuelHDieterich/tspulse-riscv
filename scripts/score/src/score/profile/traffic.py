@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # Internal
+from score.build_record import build_aggregation
 from score.profile.errors import ProfileError
 from score.profile.weights import TensorSizes
 
@@ -42,8 +43,7 @@ HIDDEN_EXCLUDED = ("decoder_with_head.forecast_mapping.",)
 # The hidden set is read once per hidden pass, and a build that scores fewer rows runs fewer
 DEFAULT_HIDDEN_COPIES = 12
 
-# A build's aggregation length, as its record names the setting, and the rows each hidden pass covers
-AGGREGATION_SETTING = "aggregation"
+# The rows each hidden pass covers
 PATCH_LENGTH = 8
 
 
@@ -201,12 +201,10 @@ def hidden_copies(settings: dict[str, str]) -> int:
     Returns
     -------
     int
-        `aggregation / 8`, or the default when the record has no aggregation.
+        `aggregation / 8`, which is 12 when the record has no aggregation.
     """
 
-    if AGGREGATION_SETTING not in settings:
-        return DEFAULT_HIDDEN_COPIES
-    return int(settings[AGGREGATION_SETTING]) // PATCH_LENGTH
+    return build_aggregation(settings) // PATCH_LENGTH
 
 
 def traffic_floor(tensors: TensorSizes, copies: int = DEFAULT_HIDDEN_COPIES) -> int:
