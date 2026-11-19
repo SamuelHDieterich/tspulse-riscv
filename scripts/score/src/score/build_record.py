@@ -22,9 +22,13 @@ from score.spike_check import _sha256
 # The record's file name, in each build folder
 BUILD_FILE = "build.json"
 
-# The keys a build's record uses to name its settings, and the one that holds the aggregation length
+# The keys a build's record uses to name its settings, and the ones that hold the aggregation length and the stride
 SETTINGS_KEY = "settings"
 AGGREGATION_SETTING = "aggregation"
+STRIDE_SETTING = "stride"
+
+# The stride a build has when its record names none
+DEFAULT_STRIDE = 1
 
 # The name of a build that sets nothing, which is the reference every variant is measured against
 BASELINE_NAME = "baseline"
@@ -329,3 +333,20 @@ def build_aggregation(settings: dict[str, str]) -> int:
     """
 
     return int(settings.get(AGGREGATION_SETTING, AGGREGATION_LENGTH))
+
+
+def build_stride(settings: dict[str, str]) -> int:
+    """Read the stride a build runs the model at.
+
+    Parameters
+    ----------
+    settings : dict[str, str]
+        The build record's settings, each by lower-case name.
+
+    Returns
+    -------
+    int
+        The `stride` setting, or `DEFAULT_STRIDE` when the record has none.
+    """
+
+    return int(settings.get(STRIDE_SETTING, DEFAULT_STRIDE))

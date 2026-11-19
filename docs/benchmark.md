@@ -10,7 +10,7 @@ benchmark all tspulse/build/host tspulse/build/rv64 [--label NAME]  # run, then 
 
 `run` has two stages:
 
-- **instructions** counts a few windows per series under Spike, and checks each against the host build byte for byte;
+- **instructions** counts a few windows per series under Spike, and checks each against the host build byte for byte. Under a `STRIDE` build, a counted window runs with the rest of its stride, and its count is the mean per window of the stride, while `result.json` keeps the N raw counts. A counted window whose stride would run past the series' end fails, as a plain `benchmark run` counting the last window does under a stride;
 - **accuracy** runs every window of the chosen `--scope`s on the host build: `screen` (each univariate working series' screen span) and `whole-python` (the 35 series the Python baseline ran whole), both by default.
 
 With `benchmark run` and `all`, `--label` defaults to the build's name, and each tool refuses a binary that doesn't match its folder's `build.json`.

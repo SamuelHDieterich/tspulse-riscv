@@ -130,7 +130,7 @@ class AccuracyUnit:
 
 @dataclass(frozen=True)
 class InstructionUnit:
-    """One window run under Spike, whose instructions the instruction stage counts.
+    """One counted window, run under Spike with the rest of its stride, whose instructions the instruction stage counts.
 
     Attributes
     ----------
@@ -142,21 +142,24 @@ class InstructionUnit:
         How many channels it has.
     window : int
         The window.
+    series_windows : int
+        How many windows the series has, which a stride's range must not pass.
     """
 
     series: str
     kind: Kind
     channels: int
     window: int
+    series_windows: int
 
     @property
     def cost(self) -> int:
-        """How many channel-windows the unit runs.
+        """How many channel-windows the unit weighs.
 
         Returns
         -------
         int
-            The channels, since it runs one window.
+            The channels: a unit runs the model once, whatever the stride.
         """
 
         return self.channels
@@ -376,7 +379,11 @@ def instruction_units(
 
     return [
         InstructionUnit(
-            series=one.stem, kind=one.kind, channels=one.channels, window=window
+            series=one.stem,
+            kind=one.kind,
+            channels=one.channels,
+            window=window,
+            series_windows=one.windows,
         )
         for one in series
         for window in _counted_windows(one, count_windows)

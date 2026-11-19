@@ -53,6 +53,7 @@ from score.benchmark.units import (
 from score.build_record import (
     BuildRecord,
     BuildRecordError,
+    build_stride,
     check_binaries,
     identity_part,
     read_build,
@@ -663,6 +664,7 @@ def run(
         accuracy_on=accuracy_on,
         host_check=host_check,
         provenance=provenance,
+        stride=build_stride(rv64_record.settings),
     )
     settings.work.mkdir(parents=True, exist_ok=True)
 
