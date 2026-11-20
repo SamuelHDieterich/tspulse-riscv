@@ -79,14 +79,17 @@ struct shape {
 };
 
 /// Every mixer Linear shape: the patch mixer over 138 patches, the feature mixer, and the register mixer over 10 patches.
+// clang-format off
 static const struct shape SHAPES[] = {
-    {"patch fc1", D_MODEL, TOTAL_PATCHES, PATCH_MLP_HIDDEN},
-    {"patch fc2", D_MODEL, PATCH_MLP_HIDDEN, TOTAL_PATCHES},
-    {"patch gate", D_MODEL, TOTAL_PATCHES, TOTAL_PATCHES},
-    {"feature fc1", TOTAL_PATCHES, D_MODEL, FEATURE_MLP_HIDDEN},
-    {"feature fc2", TOTAL_PATCHES, FEATURE_MLP_HIDDEN, D_MODEL},
-    {"register fc1", D_MODEL, REGISTER_TOKENS, REGISTER_MLP_HIDDEN},
+    // name           rows           in                  out
+    {"patch fc1",     D_MODEL,       TOTAL_PATCHES,      PATCH_MLP_HIDDEN},
+    {"patch fc2",     D_MODEL,       PATCH_MLP_HIDDEN,   TOTAL_PATCHES},
+    {"patch gate",    D_MODEL,       TOTAL_PATCHES,      TOTAL_PATCHES},
+    {"feature fc1",   TOTAL_PATCHES, D_MODEL,            FEATURE_MLP_HIDDEN},
+    {"feature fc2",   TOTAL_PATCHES, FEATURE_MLP_HIDDEN, D_MODEL},
+    {"register fc1",  D_MODEL,       REGISTER_TOKENS,    REGISTER_MLP_HIDDEN},
 };
+// clang-format on
 
 // ░█▀▀░█░█░█▀█░█▀▀░▀█▀░▀█▀░█▀█░█▀█░█▀▀
 // ░█▀▀░█░█░█░█░█░░░░█░░░█░░█░█░█░█░▀▀█
