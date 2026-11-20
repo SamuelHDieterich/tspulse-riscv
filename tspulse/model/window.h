@@ -16,7 +16,7 @@
 
 /// The errors of one window, one per head.
 struct window_errors {
-    /// Mean squared error of the stitched time reconstruction over offsets 416 to 511 and every channel.
+    /// Mean squared error of the stitched time reconstruction over the last `AGGREGATION_LENGTH` rows (offsets `512 - AGGREGATION_LENGTH` to 511) and every channel.
     float time;
     /// Mean squared error of the stitched reconstruction through the FFT over the same offsets and channels.
     float fft;
@@ -31,7 +31,7 @@ struct window_errors {
 /**
  * Runs the model on the window the history holds, one channel at a time, and scores its three heads.
  *
- * Each channel goes through the plain pass and the 12 hidden passes before the next channel starts.
+ * Each channel goes through the plain pass and the `SCORED_COPIES` hidden passes (the last `AGGREGATION_LENGTH / 8` patches) before the next channel starts.
  * In the dump build, every channel's standardized input is written to `input.window`, a (513, channels) record, each pass writes its records under its copy's path, and the errors follow as `error.time`, `error.fft` and `error.forecast`, one value each.
  *
  * @param history A full history.

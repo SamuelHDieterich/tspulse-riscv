@@ -15,6 +15,7 @@ from tsfm_public.models.tspulse import TSPulseForReconstruction
 
 # Internal
 from score.pipeline import (
+    AGGREGATION_LENGTH,
     BATCH_SIZE,
     HEADS,
     LABEL,
@@ -91,6 +92,7 @@ def scores_from_errors(
     model: TSPulseForReconstruction,
     series: pd.DataFrame,
     errors: dict[Head, np.ndarray],
+    aggregation_length: int = AGGREGATION_LENGTH,
 ) -> Heads:
     """Turn each head's per-window errors into per-row scores and their ensemble, as `score_heads` does after the model.
 
@@ -102,6 +104,8 @@ def scores_from_errors(
         The series, with `Label` as its only non-channel column.
     errors : dict[Head, np.ndarray]
         Per head, one float32 error per window, as the model would return it.
+    aggregation_length : int
+        The length the errors were made with, since IBM pads each head's scores by half of it.
 
     Returns
     -------
@@ -117,7 +121,12 @@ def scores_from_errors(
     # Replay the given errors in place of the model's
     channels = series.columns.drop(LABEL).tolist()
     pipeline = build_pipeline(
-        _ReplayPipeline, model, channels, BATCH_SIZE, replayed=errors
+        _ReplayPipeline,
+        model,
+        channels,
+        BATCH_SIZE,
+        aggregation_length=aggregation_length,
+        replayed=errors,
     )
     ensemble = pipeline(series[channels])["anomaly_score"].to_numpy()
     return split_heads(pipeline, ensemble)

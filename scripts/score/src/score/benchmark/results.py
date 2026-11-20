@@ -51,6 +51,9 @@ STDERR_FILE = "stderr"
 COUNTS_FILE = "counts.csv"
 SPIKE_STDOUT_FILE = "spike.stdout"
 
+# The instruction result's field that holds a stride's raw counts
+COUNTS_FIELD = "instruction_counts"
+
 # An instruction unit's `identical`: the byte comparison's verdict, or `not checked` when the host check is off
 NotChecked = Literal["not checked"]
 NOT_CHECKED: NotChecked = "not checked"
@@ -283,6 +286,8 @@ class InstructionResult:
         The host run's exact command line, None with the host check off.
     provenance : Provenance
         The machine, the worktree's state and the binaries' hashes.
+    instruction_counts : list[int] or None
+        Under a stride, the instructions of each window of the stride, whose rounded mean is `program_instructions`. None with stride 1, and then the field stays out of `result.json`.
     """
 
     label: str
@@ -297,6 +302,7 @@ class InstructionResult:
     spike_command: str
     host_command: str | None
     provenance: Provenance
+    instruction_counts: list[int] | None = None
 
 
 # ░█▄█░█▀▀░▀█▀░█░█░█▀█░█▀▄░█▀▀
@@ -374,7 +380,11 @@ def write_result(folder: Path, result: AccuracyResult | InstructionResult) -> No
         What the unit found.
     """
 
-    _replace(folder / RESULT_FILE, json.dumps(asdict(result), indent=2) + "\n")
+    record = asdict(result)
+    # Stride 1 keeps the one-window record, byte for byte
+    if isinstance(result, InstructionResult) and result.instruction_counts is None:
+        del record[COUNTS_FIELD]
+    _replace(folder / RESULT_FILE, json.dumps(record, indent=2) + "\n")
 
 
 def stored_result(folder: Path, sha256: dict[str, str]) -> dict[str, Any] | None:

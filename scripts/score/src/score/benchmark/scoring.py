@@ -24,7 +24,7 @@ from score.benchmark.scope import Scope, Series
 from score.benchmark.units import AccuracyUnit
 from score.capture import CONTEXT
 from score.metrics import SeriesMetrics, score_series
-from score.pipeline import HEADS, LABEL, Head
+from score.pipeline import AGGREGATION_LENGTH, HEADS, LABEL, Head
 from score.rescore import scores_from_errors
 from score.unit import SCORES
 
@@ -151,6 +151,7 @@ def score_scope(
     start: int,
     stop: int,
     destination: Path,
+    aggregation_length: int = AGGREGATION_LENGTH,
 ) -> ScopeScore:
     """Score the span of windows `[start, stop)` as a series of its own and save its arrays.
 
@@ -172,6 +173,8 @@ def score_scope(
         One past the span's last window.
     destination : Path
         The `.npz` to write.
+    aggregation_length : int
+        The length the errors were made with.
 
     Returns
     -------
@@ -196,7 +199,9 @@ def score_scope(
         )
 
     # Step 2: the errors through the pipeline's post-processing, then each score's metrics from the span's own values, so its VUS window comes from the span
-    heads = scores_from_errors(model, span, errors)
+    heads = scores_from_errors(
+        model, span, errors, aggregation_length=aggregation_length
+    )
     scores = heads.scores | {"ensemble": heads.ensemble}
     metrics = {name: score_series(scores[name], labels, values) for name in SCORES}
 

@@ -48,6 +48,35 @@ settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "rea
 [[variant]]
 settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "table" }
 
+# Each of these sits on the best exact stack, so its change is the skipped rows or the fewer passes alone
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", STRIDE = "2" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", STRIDE = "4" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", STRIDE = "8" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", STRIDE = "16" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", AGGREGATION = "64" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", AGGREGATION = "48" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", AGGREGATION = "32" }
+
+# Two approximations together on the best exact stack, to see whether their savings add
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "table", GELU = "fine" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "table", GELU = "table" }
+
 # These two measure accuracy, memory and traffic; their instruction counts are a worst case, since int8 math only pays off with vector instructions
 [[variant]]
 settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", QUANT = "w8a32" }

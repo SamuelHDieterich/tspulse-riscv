@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 # Internal
+from score.pipeline import AGGREGATION_LENGTH
 from score.spike_check import _sha256
 
 
@@ -20,6 +21,19 @@ from score.spike_check import _sha256
 
 # The record's file name, in each build folder
 BUILD_FILE = "build.json"
+
+# The keys a build's record uses for its name and its settings, and the ones that hold the aggregation length and the stride
+NAME_KEY = "name"
+SETTINGS_KEY = "settings"
+AGGREGATION_SETTING = "aggregation"
+STRIDE_SETTING = "stride"
+
+# The targets a label's identity and a result keep their two build records under
+HOST_TARGET = "host"
+RV64_TARGET = "rv64"
+
+# The stride a build has when its record names none
+DEFAULT_STRIDE = 1
 
 # The name of a build that sets nothing, which is the reference every variant is measured against
 BASELINE_NAME = "baseline"
@@ -307,3 +321,37 @@ def write_build(record: BuildRecord, folder: Path) -> None:
     """
 
     (folder / BUILD_FILE).write_text(json.dumps(asdict(record), indent=2) + "\n")
+
+
+def build_aggregation(settings: dict[str, str]) -> int:
+    """Read the aggregation length a build scores.
+
+    Parameters
+    ----------
+    settings : dict[str, str]
+        The build record's settings, each by lower-case name.
+
+    Returns
+    -------
+    int
+        The `aggregation` setting, or the baseline's length when the record has none.
+    """
+
+    return int(settings.get(AGGREGATION_SETTING, AGGREGATION_LENGTH))
+
+
+def build_stride(settings: dict[str, str]) -> int:
+    """Read the stride a build runs the model at.
+
+    Parameters
+    ----------
+    settings : dict[str, str]
+        The build record's settings, each by lower-case name.
+
+    Returns
+    -------
+    int
+        The `stride` setting, or `DEFAULT_STRIDE` when the record has none.
+    """
+
+    return int(settings.get(STRIDE_SETTING, DEFAULT_STRIDE))

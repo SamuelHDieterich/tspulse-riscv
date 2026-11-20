@@ -50,10 +50,10 @@
 /**
  * Stores the squared errors of the patch a hidden pass hid, where the stitched reconstruction takes that patch from.
  *
- * @param input The channel's standardized window, of which rows 416 to 511 are scored.
+ * @param input The channel's standardized window, of which rows 416 to 511 can be scored.
  * @param reconstruction The pass's reconstruction, 512 values.
  * @param hidden_patch The patch the pass hid, from 0 to 11.
- * @param squares Receives the 8 squared errors of that patch, at offset `8 * hidden_patch` of the 96 scored rows.
+ * @param squares Receives the 8 squared errors of that patch, at offset `8 * hidden_patch` of the 96 rows the hidden passes can hide.
  */
 static void stitch_squares(
     const float input[WINDOW_LENGTH],
@@ -95,9 +95,10 @@ write_errors(struct tdump *dump, const struct window_errors *errors) {
 #endif
 
 // The squared error of each scored value, averaged over the scored values of every channel, as `nn.MSELoss` followed by `torch.mean`:
-// time = sum_c sum_{t=416}^{511} (x[t, c] - stitched_time[t, c])^2 / (96 * C)
-// fft = sum_c sum_{t=416}^{511} (x[t, c] - stitched_fft[t, c])^2 / (96 * C)
+// time = sum_c sum_{t=512-A}^{511} (x[t, c] - stitched_time[t, c])^2 / (A * C)
+// fft = sum_c sum_{t=512-A}^{511} (x[t, c] - stitched_fft[t, c])^2 / (A * C)
 // forecast = sum_c (x[512, c] - forecast[0, c])^2 / C
+// A is the aggregation length, 96 unless the build sets TSPULSE_AGGREGATION, and C the channel count
 // x is the standardized window, and both reconstructions and the forecast are back in its units after the inverse RevIN
 // https://docs.pytorch.org/docs/stable/generated/torch.nn.MSELoss.html
 int window_run(
@@ -130,9 +131,14 @@ int window_run(
             DIMS(WINDOW_LENGTH, DUMP_CHANNELS), CHANNEL_LAST
         );
 
-        // Step 3: the plain pass, which scores the forecast, then one pass per hidden patch, each scoring the patch it hid
+        // Step 3: the plain pass, which scores the forecast, then one pass per scored hidden patch, each scoring the patch it hid
+        // IBM's pipeline scores the last `aggregation_length` rows and hides only their patches (`patchwise_stitched_reconstruction`, `reconstruct_start = context_length - aggregation_length`)
         for (int copy = 0; copy < COPIES; copy++) {
             int hidden_patch = copy == 0 ? NO_HIDDEN_PATCH : copy - 1;
+            if (hidden_patch != NO_HIDDEN_PATCH &&
+                hidden_patch < FIRST_SCORED_PATCH) {
+                continue;
+            }
             if (hidden_patch == NO_HIDDEN_PATCH) {
                 DUMP_PUSH(PLAIN_COPY);
             } else {
@@ -156,13 +162,17 @@ int window_run(
             }
         }
 
-        // Step 4: the channel's share of the reconstruction errors, summed pairwise within a channel, then added channel by channel
-        time_total += pairwise_sum(time_squares, HIDDEN_ROWS);
-        fft_total += pairwise_sum(fft_squares, HIDDEN_ROWS);
+        // Step 4: the channel's share of the reconstruction errors, the last `AGGREGATION_LENGTH` squares summed pairwise within a channel, then added channel by channel
+        time_total += pairwise_sum(
+            time_squares + HIDDEN_ROWS - AGGREGATION_LENGTH, AGGREGATION_LENGTH
+        );
+        fft_total += pairwise_sum(
+            fft_squares + HIDDEN_ROWS - AGGREGATION_LENGTH, AGGREGATION_LENGTH
+        );
     }
 
     // Step 5: the means over every scored value
-    float scored = (float)(HIDDEN_ROWS * history->channels);
+    float scored = (float)(AGGREGATION_LENGTH * history->channels);
     errors->time = time_total / scored;
     errors->fft = fft_total / scored;
     errors->forecast = forecast_total / (float)history->channels;

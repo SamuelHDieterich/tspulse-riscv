@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # Internal
+from score.build_record import build_aggregation
 from score.profile.errors import ProfileError
 from score.profile.weights import TensorSizes
 
@@ -39,8 +40,8 @@ COUNTERS = (
 PLAIN_EXCLUDED = ("decoder_with_head.fft_head.", "decoder_with_head.time_head.")
 HIDDEN_EXCLUDED = ("decoder_with_head.forecast_mapping.",)
 
-# The hidden set is read once per copy
-HIDDEN_COPIES = 12
+# The rows each hidden pass covers, so a build that scores fewer rows runs fewer hidden passes
+PATCH_LENGTH = 8
 
 
 # ░█▀▀░█░░░█▀█░█▀▀░█▀▀░█▀▀░█▀▀
@@ -186,16 +187,35 @@ def window_traffic(longer: CacheCounters, shorter: CacheCounters) -> Traffic:
     )
 
 
-def traffic_floor(tensors: TensorSizes) -> int:
+def hidden_copies(settings: dict[str, str]) -> int:
+    """Hidden passes a window runs in a build.
+
+    Parameters
+    ----------
+    settings : dict[str, str]
+        The build record's settings, each by lower-case name.
+
+    Returns
+    -------
+    int
+        `aggregation / 8`, which is 12 when the record has no aggregation.
+    """
+
+    return build_aggregation(settings) // PATCH_LENGTH
+
+
+def traffic_floor(tensors: TensorSizes, copies: int) -> int:
     """Bytes of weights one window must stream through the data cache.
 
     The weights are far larger than the cache, so each pass reads the tensors it uses from memory.
-    floor = bytes(plain set) + HIDDEN_COPIES * bytes(hidden set)
+    floor = bytes(plain set) + copies * bytes(hidden set)
 
     Parameters
     ----------
     tensors : TensorSizes
         Each tensor's bytes, from the generated table.
+    copies : int
+        Hidden passes per window.
 
     Returns
     -------
@@ -209,4 +229,4 @@ def traffic_floor(tensors: TensorSizes) -> int:
     hidden = sum(
         size for name, size in tensors.items() if not name.startswith(HIDDEN_EXCLUDED)
     )
-    return plain + HIDDEN_COPIES * hidden
+    return plain + copies * hidden

@@ -90,6 +90,8 @@ class Settings:
         Whether instruction units are checked against the host.
     provenance : Provenance
         The machine, the worktree's state and the binaries' hashes, saved with every result.
+    stride : int
+        The rv64 build's `STRIDE`, 1 for a build without one.
     processes : Processes
         The programs started so far.
     """
@@ -105,6 +107,7 @@ class Settings:
     accuracy_on: Platform
     host_check: HostCheck
     provenance: Provenance
+    stride: int
     processes: Processes = field(default_factory=Processes)
 
     def rows_path(self, series: str) -> Path:
@@ -320,36 +323,39 @@ def run_accuracy(unit: AccuracyUnit, settings: Settings) -> Outcome:
     return result
 
 
-def _read_count(path: Path, window: int) -> int | str:
-    """Read the one window's instructions from the counts CSV.
+def _read_counts(path: Path, windows: range) -> list[int] | str:
+    """Read the instructions of each asked window from the counts CSV.
 
     Parameters
     ----------
     path : Path
-        The counts CSV, `window,instructions` then one line.
-    window : int
-        The window asked for.
+        The counts CSV, `window,instructions` then one line per window.
+    windows : range
+        The windows asked for.
 
     Returns
     -------
-    int or str
-        The instructions, or what is wrong with the file.
+    list[int] or str
+        The instructions of each window in order, or what is wrong with the file.
     """
 
     try:
         lines = path.read_text().splitlines()
     except OSError as error:
         return f"cannot read {path.name}: {error}"
-    if lines[:1] != [COUNTS_HEADER] or len(lines) != 2:
-        return f"{path.name} is not `{COUNTS_HEADER}` and one line"
-    found, _, count = lines[1].partition(",")
-    if found != str(window) or not count.isdigit():
-        return f"{path.name} has `{lines[1]}`, not window {window} and a count"
-    return int(count)
+    if lines[:1] != [COUNTS_HEADER] or len(lines) != len(windows) + 1:
+        return f"{path.name} is not `{COUNTS_HEADER}` and {len(windows)} line(s)"
+    counts = []
+    for window, line in zip(windows, lines[1:], strict=True):
+        found, _, count = line.partition(",")
+        if found != str(window) or not count.isdigit():
+            return f"{path.name} has `{line}`, not window {window} and a count"
+        counts.append(int(count))
+    return counts
 
 
 def run_instruction(unit: InstructionUnit, settings: Settings) -> Outcome:
-    """Run one window under Spike with `--counts`, compare it with the host's run and save the unit's result.
+    """Run one window, or the stride that holds it, under Spike with `--counts`, compare it with the host's run and save the unit's result.
 
     Parameters
     ----------
@@ -364,6 +370,12 @@ def run_instruction(unit: InstructionUnit, settings: Settings) -> Outcome:
         The result, saved as `result.json`; a message when a program fails or writes something unexpected, which saves no result so the unit reruns; or None when the call is stopping.
     """
 
+    # A stride runs whole, from its anchor, so the counted window is averaged with the rest of its stride. A range past the series' end is refused before any folder is made
+    first = unit.window - unit.window % settings.stride
+    stride_windows = range(first, first + settings.stride)
+    if stride_windows.stop > unit.series_windows:
+        return f"{unit.name}: the stride {settings.stride} from window {first} passes the series' last window {unit.series_windows - 1}"
+
     # Step 1: the folders and both command lines, with the same program arguments
     kept = (HOST_ERRORS, SPIKE_ERRORS, COUNTS_FILE, SPIKE_STDOUT_FILE, SPIKE_STDERR)
     result_folder, scratch = _fresh_folders(settings, unit.folder, kept)
@@ -373,7 +385,7 @@ def run_instruction(unit: InstructionUnit, settings: Settings) -> Outcome:
         scratch / COUNTS_FILE,
     )
     rows_path = str(settings.rows_path(unit.series))
-    windows = [WINDOWS_OPTION, f"{unit.window}:{unit.window + 1}"]
+    windows = [WINDOWS_OPTION, f"{stride_windows.start}:{stride_windows.stop}"]
     host_command = [str(settings.host_binary), rows_path, str(host_errors), *windows]
     spike_command = [
         *settings.spike_prefix(settings.spike_options),
@@ -404,18 +416,17 @@ def run_instruction(unit: InstructionUnit, settings: Settings) -> Outcome:
         return run
     spike_seconds = run
 
-    # Step 4: the files must hold the one window; the host's errors must match Spike's byte for byte
-    window = range(unit.window, unit.window + 1)
-    problem = _check_windows(spike_errors, window)
+    # Step 4: the files must hold the stride's windows; the host's errors must match Spike's byte for byte
+    problem = _check_windows(spike_errors, stride_windows)
     if problem is not None:
         return problem
-    count = _read_count(counts, unit.window)
-    if isinstance(count, str):
-        return count
+    window_counts = _read_counts(counts, stride_windows)
+    if isinstance(window_counts, str):
+        return window_counts
     identical: Identical = NOT_CHECKED
     if host_seconds is not None:
         # The host can exit 0 without writing, and the comparison needs its CSV whole
-        problem = _check_windows(host_errors, window)
+        problem = _check_windows(host_errors, stride_windows)
         if problem is not None:
             return f"host: {problem}"
         identical = filecmp.cmp(host_errors, spike_errors, shallow=False)
@@ -430,13 +441,14 @@ def run_instruction(unit: InstructionUnit, settings: Settings) -> Outcome:
         kind=unit.kind,
         channels=unit.channels,
         window=unit.window,
-        program_instructions=count,
+        program_instructions=round(sum(window_counts) / len(window_counts)),
         identical=identical,
         spike_seconds=spike_seconds,
         host_seconds=host_seconds,
         spike_command=shlex.join(spike_command),
         host_command=shlex.join(host_command) if host_seconds is not None else None,
         provenance=settings.provenance,
+        instruction_counts=window_counts if settings.stride > 1 else None,
     )
     write_result(result_folder, result)
     return result

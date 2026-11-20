@@ -7,6 +7,7 @@
  * ROWS is a `.rows` file from `prepare-rows`. ERRORS receives a CSV with one line per window.
  * Window `w` covers rows `w` to `w + 512`, and the series has `rows - 512` windows.
  * START and STOP count windows, and STOP is not run. Windows before START are read but not run.
+ * With `TSPULSE_STRIDE` N, the model runs only on windows that are multiples of N, and the windows between write the errors of the last one run.
  *
  * The RISC-V build adds `--counts PATH`, which receives a CSV with the instructions each window's model run took.
  *
@@ -89,6 +90,17 @@ struct options {
 /// One line of the counts CSV.
 #define COUNTS_LINE "%u,%" PRIu64 "\n"
 #endif
+
+// The build's stride, 1 unless the build asks for more
+#ifndef TSPULSE_STRIDE
+#define TSPULSE_STRIDE 1
+#endif
+
+/// The model runs on every STRIDE-th window, counted from the series' first window, so a chunk's errors don't depend on where it starts.
+#define STRIDE TSPULSE_STRIDE
+
+_Static_assert(STRIDE >= 1, "STRIDE must be at least 1");
+
 /// The base the window numbers are parsed in.
 #define DECIMAL_BASE 10
 /// The first line of the errors CSV.
@@ -205,7 +217,15 @@ static int parse_args(int argc, char **argv, struct options *options) {
 #endif
 #ifdef TSPULSE_PROFILE
         } else if (strcmp(argv[i], OPTION_PROFILE) == 0) {
+#if STRIDE > 1
+            // A stride build has no per-window profile, because its windows don't each run the model
+            fprintf(
+                stderr, "%s cannot be used in a stride build\n", OPTION_PROFILE
+            );
+            return 1;
+#else
             options->profile_path = value;
+#endif
 #endif
         } else {
             return 1;
@@ -255,6 +275,13 @@ static int run_series(
     }
 
     // Step 2: one row at a time. A row completes window `rows read - 513`, and windows before START are only read
+    // The errors of the last window that ran the model, which the windows up to the next multiple of STRIDE write again
+    struct window_errors held = {0};
+#if STRIDE > 1
+    // A range that starts mid-stride first runs the anchor of its stride, the last multiple of STRIDE before START, so its held errors match a run from window 0
+    // The `#if STRIDE > 1` blocks keep a STRIDE 1 build's machine code identical to the baseline's: without them the default binaries' hashes move
+    uint32_t anchor = options->start - options->start % STRIDE;
+#endif
     uint32_t stop = options->has_stop ? options->stop : UINT32_MAX;
     int failed = 0;
     for (uint32_t r = 0; r < reader->rows && !failed; r++) {
@@ -269,16 +296,27 @@ static int run_series(
         }
         uint32_t window = r - CONTEXT_LENGTH;
         if (window < options->start) {
+#if STRIDE > 1
+            // Guarded so a STRIDE 1 build keeps the baseline's machine code. The anchor's errors are held but not written, and it is not counted
+            if (window == anchor && window_run(&history, NULL, &held)) {
+                fprintf(stderr, "cannot run window %u\n", window);
+                failed = 1;
+                break;
+            }
+#endif
             continue;
         }
         if (window >= stop) {
             break;
         }
 
-        // Step 3: the window, dumped only when it is the one asked for
+        // Step 3: the window, run when it is a multiple of STRIDE and held otherwise, dumped only when it is the one asked for
+        // A held window is still counted, so that the counts of N windows average to the cost of one window
+        int runs_model = window % STRIDE == 0;
         struct tdump *window_dump = NULL;
 #ifdef TSPULSE_DUMP
-        if (options->has_dump_window && window == options->dump_window) {
+        if (runs_model && options->has_dump_window &&
+            window == options->dump_window) {
             window_dump = dump;
             *dumped = 1;
         }
@@ -288,7 +326,13 @@ static int run_series(
         uint64_t before = instret_read();
 #endif
         struct window_errors result;
-        int run_failed = window_run(&history, window_dump, &result);
+        int run_failed = 0;
+        // Plain `if`, not `#if`: the compiler drops it in a stride-1 build, where `runs_model` is always true
+        if (STRIDE > 1 && !runs_model) {
+            result = held;
+        } else {
+            run_failed = window_run(&history, window_dump, &result);
+        }
 #ifdef __riscv
         uint64_t after = instret_read();
 #endif
@@ -297,6 +341,11 @@ static int run_series(
             failed = 1;
             break;
         }
+
+#if STRIDE > 1
+        // Guarded so a STRIDE 1 build keeps the baseline's machine code
+        held = result;
+#endif
 
         // Step 4: the instruction count, when asked for
 #ifdef __riscv
@@ -320,7 +369,7 @@ static int run_series(
         }
 #endif
 
-        // Step 6: the errors; %.9g promotes the floats to double, which the model itself never does
+        // Step 6: the errors, held ones included; %.9g promotes the floats to double, which the model itself never does
         if (fprintf(
                 errors, ERRORS_LINE, window, (double)result.time,
                 (double)result.fft, (double)result.forecast

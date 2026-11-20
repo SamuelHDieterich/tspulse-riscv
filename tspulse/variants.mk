@@ -19,7 +19,8 @@
 # ░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀
 
 # Listed in the order they appear in a build's name
-SETTINGS := LINEAR UNROLL MATH OUTPUTS EXP GELU QUANT
+# STRIDE stays last: a stride variant finds its stack's results by cutting `+stride-N` off the end of its build name
+SETTINGS := LINEAR UNROLL MATH OUTPUTS EXP GELU QUANT AGGREGATION STRIDE
 
 # The blocked kernel keeps each output's sum in the plain loop's order, so the result stays exact
 LINEAR ?= plain
@@ -83,6 +84,25 @@ QUANT_WEIGHTS_w8a32 := int8
 QUANT_DEFINES_w8a8 := -DTSPULSE_QUANT_W8A8
 QUANT_SOURCES_w8a8 := kernels/qlinear/w8a8.c
 QUANT_WEIGHTS_w8a8 := int8
+
+# Scoring fewer of the last rows runs fewer hidden passes per window, so the rescore must use the same length
+AGGREGATION ?= 96
+AGGREGATION_NAME := aggregation
+AGGREGATION_DEFAULT := 96
+AGGREGATION_VALUES := 96 64 48 32
+AGGREGATION_DEFINES_64 := -DTSPULSE_AGGREGATION=64
+AGGREGATION_DEFINES_48 := -DTSPULSE_AGGREGATION=48
+AGGREGATION_DEFINES_32 := -DTSPULSE_AGGREGATION=32
+
+# Running the model on every N-th window divides its work by N, at up to N-1 rows of delay before an alert
+STRIDE ?= 1
+STRIDE_NAME := stride
+STRIDE_DEFAULT := 1
+STRIDE_VALUES := 1 2 4 8 16
+STRIDE_DEFINES_2 := -DTSPULSE_STRIDE=2
+STRIDE_DEFINES_4 := -DTSPULSE_STRIDE=4
+STRIDE_DEFINES_8 := -DTSPULSE_STRIDE=8
+STRIDE_DEFINES_16 := -DTSPULSE_STRIDE=16
 
 # ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
 # ░▀▀█░█░█░█░█░█▀▄░█░░░█▀▀░▀▀█

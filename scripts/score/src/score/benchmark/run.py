@@ -51,8 +51,11 @@ from score.benchmark.units import (
     parse_shard,
 )
 from score.build_record import (
+    HOST_TARGET,
+    RV64_TARGET,
     BuildRecord,
     BuildRecordError,
+    build_stride,
     check_binaries,
     identity_part,
     read_build,
@@ -93,10 +96,6 @@ RESERVED_NAMES = ("", ".", "..")
 # Exit codes: 1 is a failed or differing unit, 3 is a call refused before any stage ran, and 130 is the conventional code of a call stopped by Ctrl-C or SIGTERM
 EXIT_REFUSED = 3
 EXIT_INTERRUPTED = 130
-
-# The targets the two build records are kept under in a result and a label's identity
-HOST_TARGET = "host"
-RV64_TARGET = "rv64"
 
 # The accuracy scopes a call runs when none is named
 DEFAULT_SCOPES = [Scope.SCREEN, Scope.WHOLE_PYTHON]
@@ -663,6 +662,7 @@ def run(
         accuracy_on=accuracy_on,
         host_check=host_check,
         provenance=provenance,
+        stride=build_stride(rv64_record.settings),
     )
     settings.work.mkdir(parents=True, exist_ok=True)
 

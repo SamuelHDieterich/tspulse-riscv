@@ -10,7 +10,7 @@ benchmark all tspulse/build/host tspulse/build/rv64 [--label NAME]  # run, then 
 
 `run` has two stages:
 
-- **instructions** counts a few windows per series under Spike, and checks each against the host build byte for byte;
+- **instructions** counts a few windows per series under Spike, and checks each against the host build byte for byte. Under a `STRIDE` build, a counted window runs with the rest of its stride, and its count is the mean per window of the stride, while `result.json` keeps the N raw counts. A counted window whose stride would run past the series' end fails, rather than counting only part of its stride;
 - **accuracy** runs every window of the chosen `--scope`s on the host build: `screen` (each univariate working series' screen span) and `whole-python` (the 35 series the Python baseline ran whole), both by default.
 
 With `benchmark run` and `all`, `--label` defaults to the build's name, and each tool refuses a binary that doesn't match its folder's `build.json`.
@@ -27,7 +27,7 @@ Results go to `$TSPULSE_DATA/results/benchmark/<label>/`, and `collect` writes t
 - `accuracy.csv`: VUS-PR, VUS-ROC and AUC-PR per series, scope and head, beside the Python baseline's and IBM's values;
 - `instructions.csv`: the instructions of each counted window.
 
-`collect` can run during a run: it scores the series that are complete and lists the rest. `--against OTHER` adds each row's difference from another label.
+`collect` can run during a run: it scores the series that are complete and lists the rest. It scores each label with the aggregation length of its build (96 when the build sets none). `--against OTHER` adds each row's difference from another label.
 Each command exits 1 when a unit failed or differed or a series could not be scored. `collect` and `all` also exit 1 when a saved `result.json` can't be read or came from other binaries. Each of these is listed as a `problem:` line.
 
 ## Profiling a build
@@ -46,7 +46,7 @@ The default windows are 1, 429 and 908 of the `560_YAHOO_id_10_Synthetic_tr_500_
 The tables go to `benchmark/results/<label>/profile/`, and resuming writes the same bytes again. `kernels.csv`, `modules.csv`, `mix.csv`, `cycles.csv` and `traffic.csv` have rows for each window plus a `mean` row, `traffic.csv` adds a `floor_bytes` row with the window `all`, and `memory.csv` is one table for the build, with no window column. Fresh Spike runs can move the traffic counters slightly, because the cache model replaces lines at random:
 
 - `kernels.csv`: instructions per function (its own instructions only), with the proxy kernel's own work as the `pk` row, which can be slightly negative since its handlers vary a little between runs;
-- `modules.csv`: instructions per PyTorch module, children included, with the module's own share in `self`. A path is the copy (`hidden`, the twelve hidden copies summed, or `plain`), a `/`, then the module's dotted names; `depth` counts the copy as 1. The `window` row is the whole window with the profiling hooks' cost removed, and `raw` the same with nothing removed (its `calls` are the hook calls);
+- `modules.csv`: instructions per PyTorch module, children included, with the module's own share in `self`. A path is the copy (`hidden`, the hidden copies summed, or `plain`), a `/`, then the module's dotted names; `depth` counts the copy as 1. The `window` row is the whole window with the profiling hooks' cost removed, and `raw` the same with nothing removed (its `calls` are the hook calls);
 - `mix.csv`: instructions per mnemonic, compressed forms apart (`c.addi` and `addi`), without pk;
 - `cycles.csv`: cycles per window as a range, and per device class its clock, seconds per window and the readings per second one channel keeps up with. The low end charges each instruction its issue cost, the high end its longest latency. The weights come from one manual, the OpenC906's (`score/profile/c906.csv`), so these are a model for comparing builds and not a measurement. The microcontroller rows carry a note that their times are a rough proxy for an rv32 chip;
 - `memory.csv`: weights, code, static buffers, the stack's worst path and the heap as a formula of the channel count;

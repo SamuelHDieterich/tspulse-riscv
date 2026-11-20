@@ -215,6 +215,8 @@ class Summary:
         The sizes, None for a variant not run.
     traffic_bytes : int or None
         The mean window's total traffic, None for a variant not run.
+    profile_from : str or None
+        The name of the stack whose profile the cycles, traffic and memory come from, None for a variant that was profiled itself.
     vus_pr : dict[str, HeadVus]
         Each head's VUS-PR, empty for a variant not run.
     """
@@ -230,6 +232,7 @@ class Summary:
     cycles: Cycles | None = None
     memory_bytes: MemoryBytes | None = None
     traffic_bytes: int | None = None
+    profile_from: str | None = None
     vus_pr: dict[str, HeadVus] = field(default_factory=dict)
 
 
