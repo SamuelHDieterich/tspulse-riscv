@@ -1,0 +1,55 @@
+{
+  "name": "linear-blocked+unroll-on+math-bundled+outputs-read+quant-w8a8",
+  "target": "rv64",
+  "settings": {
+    "linear": "blocked",
+    "unroll": "on",
+    "math": "bundled",
+    "outputs": "read",
+    "exp": "libm",
+    "gelu": "libm",
+    "quant": "w8a8"
+  },
+  "cc": "riscv64-none-elf-gcc",
+  "cc_version": "riscv64-none-elf-gcc (GCC) 16.2.0",
+  "cppflags": "-MMD -MP -DTSPULSE_OUTPUTS_READ -DTSPULSE_QUANT_W8A8",
+  "cflags": "-march=rv64gc -mabi=lp64d -O3 -Wall -Wextra -funroll-loops",
+  "ldlibs": "-lm",
+  "file_flags": {
+    "kernels/revin.c": "-ffp-contract=off"
+  },
+  "sources": [
+    "tspulse.c",
+    "io/rows.c",
+    "model/history.c",
+    "model/pass.c",
+    "model/window.c",
+    "kernels/add.c",
+    "kernels/fft.c",
+    "kernels/gelu.c",
+    "kernels/layer_norm.c",
+    "kernels/multiply.c",
+    "kernels/revin.c",
+    "kernels/softmax.c",
+    "kernels/sum.c",
+    "kernels/transpose.c",
+    "modules/backbone.c",
+    "modules/block.c",
+    "modules/decoder.c",
+    "modules/embedding.c",
+    "modules/heads.c",
+    "modules/mixer.c",
+    "kernels/linear/blocked.c",
+    "kernels/qlinear/w8a8.c"
+  ],
+  "overrides": {},
+  "commit": "fb4dc38dc8913edd107a16e03633d70bcf5da934",
+  "tree": "aae140e412b41bfb4f4a2a04c6ac50d5120a0845",
+  "dirty": false,
+  "sha256": {
+    "tspulse": "afe207e189b8355f85374e2638bb16a33c4219c1f8ef8438356e8d60a46653a7",
+    "tspulse-dump": "5ad68caf2cb2f232c90f2f10da0f041fb9d2e5b0e62ae85c36be67c15580de77",
+    "tspulse-profile": "b7cc7c3bc7021dadd20087239bb88214f667cf0a733c0c3a4a328a66ddec25f3",
+    "check-weights": "315cb5d037e6b5b191ba99f40dc23ede156d25d25857d315285c254835383b8c"
+  }
+}
