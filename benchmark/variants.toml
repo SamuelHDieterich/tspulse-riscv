@@ -83,3 +83,10 @@ settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "rea
 
 [[variant]]
 settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", QUANT = "w8a8" }
+
+# The fine GELU and table exp pair with a stride and with fewer passes, to see whether their savings add
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "table", GELU = "fine", STRIDE = "2" }
+
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "table", GELU = "fine", AGGREGATION = "48" }
