@@ -346,7 +346,7 @@ def _counted_windows(series: Series, count_windows: CountWindows) -> list[int]:
         The windows, in order and without repeats.
     """
 
-    # A multivariate series has no screen span, so its middle window stands for it
+    # A series with no screen span (multivariate or held-back) has its middle window stand for it
     if series.screen is None:
         return [series.windows // 2]
 

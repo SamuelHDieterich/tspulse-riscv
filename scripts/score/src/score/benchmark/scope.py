@@ -20,7 +20,7 @@ import typer
 # Internal
 from score.capture import CONTEXT
 from score.kind import Kind
-from score.spike_check import SERIES_TABLE, WORKING_GROUP
+from score.spike_check import HELD_GROUP, SERIES_TABLE, WORKING_GROUP, Group
 
 
 # ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀█░█▀█░▀█▀░█▀▀
@@ -45,15 +45,18 @@ class Scope(StrEnum):
         Each univariate working series' screen span, the windows `[screen_start, screen_stop − 512)`, which variants are compared on.
     WHOLE_PYTHON : str
         Every window of each series the Python baseline ran whole, so the C sits beside Python and IBM on the same series.
+    HELD : str
+        Every window of each held-back series, kept out of every choice made on the working series.
     """
 
     SCREEN = "screen"
     WHOLE_PYTHON = "whole-python"
+    HELD = "held"
 
 
 @dataclass(frozen=True)
 class Series:
-    """One working series, with what the scopes and units need from the series tables.
+    """One series, with what the scopes and units need from the series tables.
 
     Attributes
     ----------
@@ -68,7 +71,7 @@ class Series:
     windows : int
         How many windows it has.
     screen : tuple[int, int] or None
-        Its screen span's windows `[start, stop)`, None for a multivariate series, which has none.
+        Its screen span's windows `[start, stop)`, None for a multivariate or held-back series, which has none.
     python_run : bool
         Whether the Python baseline ran it whole.
     """
@@ -114,18 +117,49 @@ def _read_table(path: Path) -> list[dict[str, str]]:
         raise typer.Exit(1) from error
 
 
-def read_series(top: Path) -> list[Series]:
-    """List the working series in `benchmark/series.csv` order.
+def scopes_group(scopes: list[Scope]) -> Group:
+    """The series group a set of scopes runs on.
+
+    Parameters
+    ----------
+    scopes : list[Scope]
+        The scopes.
+
+    Returns
+    -------
+    Group
+        `HELD_GROUP` when the scopes are `HELD` alone, else `WORKING_GROUP`.
+
+    Raises
+    ------
+    typer.BadParameter
+        When `HELD` is mixed with a working scope, since a label holds one group's series.
+    """
+
+    if Scope.HELD not in scopes:
+        return WORKING_GROUP
+    if any(one != Scope.HELD for one in scopes):
+        raise typer.BadParameter(
+            f"{Scope.HELD} runs the held-back series and can't be mixed with {Scope.SCREEN} or {Scope.WHOLE_PYTHON}, which run the working ones: use a label for each.",
+            param_hint="--scope",
+        )
+    return HELD_GROUP
+
+
+def read_series(top: Path, group: Group = WORKING_GROUP) -> list[Series]:
+    """List one group's series in `benchmark/series.csv` order.
 
     Parameters
     ----------
     top : Path
         The worktree's top level.
+    group : Group
+        The group to list, `WORKING_GROUP` or `HELD_GROUP`.
 
     Returns
     -------
     list[Series]
-        Every working series. The Python baseline's series are all working series.
+        Every series of the group. The Python baseline's series are all working series.
 
     Raises
     ------
@@ -136,10 +170,10 @@ def read_series(top: Path) -> list[Series]:
     python_runs = {row["file_name"] for row in _read_table(top / PYTHON_RUNS_TABLE)}
     series = []
     for row in _read_table(top / SERIES_TABLE):
-        if row["group"] != WORKING_GROUP:
+        if row["group"] != group:
             continue
 
-        # A row span `[screen_start, screen_stop)` holds the windows `[screen_start, screen_stop − 512)`. Multivariate rows leave the span empty
+        # A row span `[screen_start, screen_stop)` holds the windows `[screen_start, screen_stop − 512)`. Multivariate and held-back rows leave the span empty
         screen = None
         if row["screen_start"]:
             screen = (int(row["screen_start"]), int(row["screen_stop"]) - CONTEXT)
@@ -178,7 +212,9 @@ def scope_range(
     """
 
     # Step 1: the scope's full range
-    if scope == Scope.SCREEN:
+    if scope == Scope.HELD:
+        start, stop = 0, series.windows
+    elif scope == Scope.SCREEN:
         if series.screen is None:
             return None
         start, stop = series.screen

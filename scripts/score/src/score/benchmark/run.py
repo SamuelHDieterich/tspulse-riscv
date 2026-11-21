@@ -35,7 +35,7 @@ from score.benchmark.results import (
     delete_label_results,
     read_identity,
 )
-from score.benchmark.scope import Scope, Series, read_series
+from score.benchmark.scope import Scope, Series, read_series, scopes_group
 from score.benchmark.stage import StageTally, run_stage, split_done
 from score.benchmark.tables import TABLES_FOLDER
 from score.benchmark.units import (
@@ -438,7 +438,7 @@ def run(
     series: Annotated[
         list[str] | None,
         typer.Option(
-            help="Only this working series, by CSV name without `.csv`. Repeatable."
+            help="Only this series of the scopes' group, by CSV name without `.csv`. Repeatable."
         ),
     ] = None,
     shard: Annotated[
@@ -450,7 +450,7 @@ def run(
     scope: Annotated[
         list[Scope] | None,
         typer.Option(
-            help="The accuracy windows: each univariate screen span, every window of the Python baseline's series, or both. Repeatable; defaults to both."
+            help="The accuracy windows: each univariate screen span, every window of the Python baseline's series, or every window of the held-back series. Repeatable; defaults to the first two, and the held-back scope can't be mixed with them."
         ),
     ] = None,
     count_windows: Annotated[
@@ -526,7 +526,7 @@ def run(
     spike_jobs : int
         Spike units at once.
     series : list[str] or None
-        Series stems to keep, or every working series.
+        Series stems to keep, or every series of the scopes' group.
     shard : str or None
         `K/N`, or None for every unit.
     scope : list[Scope] or None
@@ -581,6 +581,7 @@ def run(
             param_hint="--isa",
         )
     scopes = sorted(set(scope or DEFAULT_SCOPES))
+    group = scopes_group(scopes)
     spike_options = spike_option or []
 
     # Step 2: the data folder, Spike, pk and the binaries, hashed once so the skip decision and every result use the same values
@@ -622,14 +623,16 @@ def run(
 
     # Step 3: the series asked for, checked before the label's folder is made
     top = _top_level()
-    working = read_series(top)
-    known = {one.stem for one in working}
+    group_series = read_series(top, group)
+    known = {one.stem for one in group_series}
     unknown = sorted(set(series or []) - known)
     if unknown:
         raise typer.BadParameter(
-            f"Not a working series: {', '.join(unknown)}", param_hint="--series"
+            f"Not a {group} series: {', '.join(unknown)}", param_hint="--series"
         )
-    chosen: list[Series] = [one for one in working if not series or one.stem in series]
+    chosen: list[Series] = [
+        one for one in group_series if not series or one.stem in series
+    ]
 
     # Step 4: the worktree's state, the label's folder and its log
     machine = machine or socket.gethostname()

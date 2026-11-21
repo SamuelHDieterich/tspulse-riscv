@@ -24,7 +24,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 # External
 import typer
@@ -69,9 +69,13 @@ RV64_ROLE = "rv64"
 # Where the row files, errors and dumps sit while a unit runs, under the git top level
 WORK_FOLDER = Path("tspulse/build/check-spike")
 
+# The two groups of `benchmark/series.csv`: the series the working choices are made on, and the ones kept back
+Group = Literal["working", "held"]
+
 # The benchmark's series table, under the git top level
 SERIES_TABLE = Path("benchmark/series.csv")
-WORKING_GROUP = "working"
+WORKING_GROUP: Group = "working"
+HELD_GROUP: Group = "held"
 
 # The folder a series unit's label starts with
 SERIES_FOLDER = "series"

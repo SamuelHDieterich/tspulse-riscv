@@ -27,7 +27,7 @@ from score.benchmark.results import (
     find_results,
     read_identity,
 )
-from score.benchmark.scope import Scope, Series, read_series, scope_range
+from score.benchmark.scope import Scope, Series, read_series, scope_range, scopes_group
 from score.benchmark.scoring import (
     ScopeScore,
     overlapping_units,
@@ -52,6 +52,7 @@ from score.benchmark.tables import (
     read_against_accuracy,
     read_against_instructions,
     read_baseline,
+    read_ibm_eval,
     write_table,
 )
 from score.benchmark.units import (
@@ -377,7 +378,7 @@ def collect_label(
     instruction_rows: list[InstructionRow] = []
     progress: dict[str, _Progress] = {}
     problems: list[str] = []
-    for one in read_series(top):
+    for one in read_series(top, scopes_group(scopes)):
         progress[one.stem] = _Progress(_Count(), _Count())
         scored += _score_series(
             one,
@@ -396,7 +397,12 @@ def collect_label(
 
     # Step 3: the tables, with the other label's values beside them
     accuracy: list[AccuracyRow] = accuracy_rows(
-        scored, read_baseline(top), compare_python=identity.window_cap is None
+        scored,
+        read_baseline(top),
+        read_ibm_eval(data)
+        if Scope.HELD in scopes and identity.window_cap is None
+        else {},
+        compare_python=identity.window_cap is None,
     )
     if against_tables is not None:
         accuracy = compare_accuracy(

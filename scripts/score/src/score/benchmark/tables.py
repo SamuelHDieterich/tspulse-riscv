@@ -16,6 +16,7 @@ from pathlib import Path
 # Internal
 from score.benchmark.scope import Scope, _read_table
 from score.benchmark.scoring import ScopeScore
+from score.kind import Kind
 from score.spike_results import _replace
 
 
@@ -36,6 +37,17 @@ METRICS = {"VUS-PR": "vus_pr", "VUS-ROC": "vus_roc", "AUC-PR": "auc_pr"}
 
 # IBM published these two only
 IBM_METRICS = ("VUS-PR", "VUS-ROC")
+
+# IBM's per-head Eval scores, under the data folder: `TSB-AD-<kind>-Eva-<file>.csv`, with each head's file and each kind's key column
+IBM_EVAL_FOLDER = Path("lists/ibm")
+IBM_EVAL_FILE = "TSB-AD-{kind}-Eva-{name}.csv"
+IBM_HEAD_FILES = {
+    "time": "time",
+    "fft": "fft",
+    "forecast": "future",
+    "ensemble": "ensemble",
+}
+IBM_KEY_COLUMNS = {Kind.U: "file_name", Kind.M: "file_list"}
 
 # The columns that only a table written with `--against` has
 AGAINST_COLUMNS = {
@@ -72,7 +84,7 @@ class AccuracyRow:
     python_value : float or None
         The Python baseline's value, for `whole-python` rows.
     ibm_value : float or None
-        IBM's published value, for `whole-python` VUS rows.
+        IBM's published value, for `whole-python` and `held` VUS rows (its Eval tables for `held`).
     against_value : float or None
         The `--against` label's value for the same row.
     difference : float or None
@@ -185,12 +197,42 @@ def read_baseline(top: Path) -> dict[tuple[str, str, str], tuple[float, float | 
     }
 
 
+def read_ibm_eval(data: Path) -> dict[tuple[str, str, str], float]:
+    """Read IBM's Eval scores of every head, for both archives.
+
+    Parameters
+    ----------
+    data : Path
+        The folder with the data.
+
+    Returns
+    -------
+    dict[tuple[str, str, str], float]
+        `(file_name, head, metric)` to IBM's VUS-PR or VUS-ROC.
+
+    Raises
+    ------
+    typer.Exit
+        With code 1 when a file can't be read.
+    """
+
+    scores = {}
+    for kind, key in IBM_KEY_COLUMNS.items():
+        for head, name in IBM_HEAD_FILES.items():
+            path = data / IBM_EVAL_FOLDER / IBM_EVAL_FILE.format(kind=kind, name=name)
+            for row in _read_table(path):
+                for metric in IBM_METRICS:
+                    scores[(row[key], head, metric)] = float(row[metric])
+    return scores
+
+
 def accuracy_rows(
     scored: list[ScopeScore],
     baseline: dict[tuple[str, str, str], tuple[float, float | None]],
+    ibm_eval: dict[tuple[str, str, str], float],
     compare_python: bool,
 ) -> list[AccuracyRow]:
-    """Turn scored scopes into table rows, with the baseline beside the `whole-python` ones.
+    """Turn scored scopes into table rows, with the baseline beside the `whole-python` ones and IBM's Eval scores beside the `held` ones.
 
     Parameters
     ----------
@@ -198,8 +240,10 @@ def accuracy_rows(
         The scored scopes.
     baseline : dict
         What `read_baseline` returned.
+    ibm_eval : dict
+        What `read_ibm_eval` returned, or empty when no held-back scope was scored.
     compare_python : bool
-        Whether to fill the baseline's values. They are for the whole series, so a window-capped run leaves them empty.
+        Whether to fill the baseline's values. They are for the whole series, so a window-capped run leaves them empty. IBM's Eval scores follow the same rule.
 
     Returns
     -------
@@ -220,6 +264,9 @@ def accuracy_rows(
                     )
                     if metric not in IBM_METRICS:
                         ibm_value = None
+                # No Python run touched the held-back series, so only IBM's score sits beside them
+                elif compare_python and item.scope == Scope.HELD:
+                    ibm_value = ibm_eval.get((file_name, head, metric))
                 rows.append(
                     AccuracyRow(
                         file_name=file_name,
