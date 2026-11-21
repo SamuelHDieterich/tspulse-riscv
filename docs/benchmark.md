@@ -11,7 +11,10 @@ benchmark all tspulse/build/host tspulse/build/rv64 [--label NAME]  # run, then 
 `run` has two stages:
 
 - **instructions** counts a few windows per series under Spike, and checks each against the host build byte for byte. Under a `STRIDE` build, a counted window runs with the rest of its stride, and its count is the mean per window of the stride, while `result.json` keeps the N raw counts. A counted window whose stride would run past the series' end fails, rather than counting only part of its stride;
-- **accuracy** runs every window of the chosen `--scope`s on the host build: `screen` (each univariate working series' screen span) and `whole-python` (the 35 series the Python baseline ran whole), both by default.
+- **accuracy** runs every window of the chosen `--scope`s on the host build: `screen` (each univariate working series' screen span), `whole-python` (the 35 series the Python baseline ran whole) and `held` (every window of the held-back series). The first two are the default.
+
+`--scope held` can't be mixed with the others, and `collect` scores the scopes the label was run with.
+In an uncapped run, `accuracy.csv` carries IBM's Eval values for the held-back series in the `ibm_value` column, as it carries the Python baseline's beside `whole-python`; a `--window-cap` run leaves them empty.
 
 With `benchmark run` and `all`, `--label` defaults to the build's name, and each tool refuses a binary that doesn't match its folder's `build.json`.
 A label is one build and its settings. Running it again with other binaries or settings is refused: use another label, or `--redo` to start it over.

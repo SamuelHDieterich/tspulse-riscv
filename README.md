@@ -36,7 +36,8 @@ Every command runs inside the dev shell. A full run goes in this order:
 5. `check-model` checks the C against PyTorch, and `check-spike` checks the RISC-V build against the host build.
 6. `benchmark all tspulse/build/host tspulse/build/rv64` benchmarks the baseline under the label `baseline`.
 7. `benchmark variants` builds, runs and compares each variant against the baseline.
-8. `time-host` times the C builds against PyTorch on this computer.
+8. `benchmark variants --group held` runs the final picks on the held-back series.
+9. `time-host` times the C builds against PyTorch on this computer.
 
 ## Commands
 

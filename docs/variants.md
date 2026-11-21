@@ -19,10 +19,10 @@ The variant's name is its build name, here `linear-blocked+unroll-on`. The basel
 
 - `--only NAME` runs only that variant, and `--redo NAME` deletes that variant's results and starts it again. Both take the build name and can be repeated.
 - `--jobs N` runs that many accuracy units at once on the host, and `--spike-jobs N` that many Spike runs at once, for the counted windows and the profile (default 1 each).
-- `--series STEM` keeps only that working series, and can be repeated. `--window-cap N` keeps the first N windows of each series' screen span. They can be combined, and both need `--suffix`.
+- `--series STEM` keeps only that series of the group (a working series, or a held-back one with `--group held`), and can be repeated. `--window-cap N` keeps the first N windows of each series' screen span, or of each held-back series with `--group held`. They can be combined, and both need `--suffix`.
 - `--suffix TEXT` is appended to each variant's name to make its label, so a cut-down run never writes into a full run's results. A label is the name plus the suffix, and every path below uses it. A label started with other series or another window cap is refused: use another `--suffix`, or `--redo`.
-- `--group held` runs only the variants marked `held = true` in the list, on the held-back series, with the stages above except the comparison with the baseline and the profile. Their labels are the build name plus `-held` plus `--suffix`, each summary pairs the pick with the stack (the marked variant whose settings every other marked one contains) series by series, and the merged table is `benchmark/results/variants-held<suffix>.json`. `--only` and `--redo` take marked variants only, and `--series` takes held-back series.
-- `--shard K/N` runs only share K of N of each label's units and stops after the run stage. Copy the shards' label folders into one folder on a machine, then run the same command there without `--shard`: it runs any unit still missing, collects and summarises. `--redo` and `--table-only` can't be combined with it.
+- `--group held` runs the variants marked `held = true` on the held-back series instead of the working ones, as [The held-back run](#the-held-back-run) describes. The default is `--group working`.
+- `--shard K/N` runs only share K of N of each label's units, counted from 0 (`0/2` and `1/2`), and stops after the run stage. Run the same command without `--shard` on the machine holding every share's label folder: it runs any unit still missing, then collects and summarises. `--redo` and `--table-only` can't be combined with it.
 - `--machine NAME` names this computer in each result and in the log, and defaults to the hostname. `--data` defaults to `$TSPULSE_DATA`.
 - `--table-only` builds and runs nothing and only writes the merged table from what is on disk.
 
@@ -58,6 +58,51 @@ The same command resumes: a stage whose results are already on disk is skipped, 
 - The summary is written again on every call that reaches that stage.
 
 The command exits 1 when any variant had a problem, and 3 when the list, a label's selection, or the data folder can't be used, which is checked before any variant builds. When the merge at the end fails, it exits 1 too, also with `--table-only`. After Ctrl-C or SIGTERM it stops the running stage and exits 130, and the rest waits for the next call.
+
+## The held-back run
+
+`benchmark variants --group held` runs the final picks on the held-back series:
+
+```bash
+benchmark variants --group held [--only NAME] [--redo NAME] [--jobs N] [--spike-jobs N] [--series STEM] [--window-cap N] [--suffix TEXT] [--shard K/N] [--machine NAME] [--table-only]
+```
+
+The picks are the `[[variant]]` tables marked `held = true` in the list:
+
+```toml
+[[variant]]
+settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read" }
+held = true
+```
+
+One marked variant is the stack: the one whose settings every other marked variant contains. The command refuses a marked set with no such variant or with more than one.
+`--only` and `--redo` take marked variants only, and `--series` takes held-back series.
+
+A pick's label is its build name, then `-held`, then `--suffix`, so `<name>-held-smoke` for `--suffix -smoke`. The paths of [the stages](#running-variants) hold for these labels, with these differences:
+
+- the **run** stage uses the `held` scope on the host and the `middle` counted windows under Spike;
+- the **collect** stage runs without `--against`, and there is no **profile** stage;
+- the **summary** stage writes `benchmark/results/<label>/summary.json` and pairs it with the stack's held-back results, series by series. It can be written before the stack's results exist, and then holds no pairing or ratio.
+
+Each pick's `summary.json` holds:
+
+- `spike_check`: how many counted windows were compared between the host and Spike builds, and how many differed;
+- `instructions`: the mean instructions per channel (`u_mean`, `m_mean`), and their ratio to the stack's (`u_ratio`, `m_ratio`);
+- `vus_pr`: for the univariate and the multivariate series apart, and for each head, the number of series, the plain `mean` of the VUS-PR, the `source_mean` (the mean of each source's mean), IBM's Eval mean over the same series (`ibm_mean`), and the `paired` differences from the stack: their mean, standard deviation and standard error, and the worst series.
+
+At the end of every call, also after Ctrl-C, the summaries are merged into `benchmark/results/variants-held<suffix>.json`, in the list's order, and its short form is printed. A pick with no summary has a `missing` of `["not run"]`. `--table-only` writes the file again.
+
+### Spreading the picks across computers
+
+Whole picks, or `--shard` parts of one, can run on several computers.
+The collecting computer is the one whose `benchmark/results/` should end up holding the tables.
+
+1. On each computer, use its own clone and its own data folder, fetch the data with `download-datasets`, `download-weights` and `download-lists`, and copy `$TSPULSE_DATA/reference/` from the collecting computer. Don't capture the reference again: PyTorch on another CPU may not reproduce it.
+2. Build, then run the same options everywhere: the same list, `--suffix` and `--window-cap`, and so on (`--jobs` and `--spike-jobs` may differ). Give each computer its own `--machine`, since each one writes its own `<machine>.log` and instruction table.
+3. Check that the binaries and a sample's errors match the collecting computer's: `sha256sum` of `tspulse/build/<name>/host/tspulse` and `tspulse/build/<name>/rv64/tspulse` for each pick, and of `"$RISCV_PK"`, must be equal, and the errors of a few windows of a held-back series, made with `tspulse`, must be byte-identical.
+4. Run `benchmark variants --group held --only PICK --machine HOST` for the picks of this computer, adding `--shard K/N` to run one part of a pick, with the same N on every computer. The same command resumes after an interruption.
+5. Copy each label's data folder, `$TSPULSE_DATA/results/benchmark/<label>/`, back into the same place on the collecting computer. Copy every part of a sharded pick into the one folder. A pick can also move to another computer partway through the same way.
+6. On the collecting computer, run `benchmark variants --group held` again with the same `--suffix`. It runs any unit still missing, collects every label and merges the summaries.
 
 ## Summaries
 
