@@ -20,8 +20,11 @@ settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled" }
 [[variant]]
 settings = { OUTPUTS = "read" }
 
+# `held = true` marks the picks `benchmark variants --group held` runs on the held-back series
+# One of them, the stack, is contained in the settings of every other
 [[variant]]
 settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read" }
+held = true
 
 # Each of these sits on the best exact stack, so its change is the approximation alone
 [[variant]]
@@ -73,6 +76,7 @@ settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "rea
 # Two approximations together on the best exact stack, to see whether their savings add
 [[variant]]
 settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "table", GELU = "fine" }
+held = true
 
 [[variant]]
 settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "table", GELU = "table" }
@@ -87,6 +91,8 @@ settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "rea
 # The fine GELU and table exp pair with a stride and with fewer passes, to see whether their savings add
 [[variant]]
 settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "table", GELU = "fine", STRIDE = "2" }
+held = true
 
 [[variant]]
 settings = { LINEAR = "blocked", UNROLL = "on", MATH = "bundled", OUTPUTS = "read", EXP = "table", GELU = "fine", AGGREGATION = "48" }
+held = true

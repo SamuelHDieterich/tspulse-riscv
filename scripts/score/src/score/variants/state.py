@@ -32,7 +32,14 @@ from score.build_record import (
 )
 from score.layout import BENCHMARK_FOLDER
 from score.profile.cli import WORK_SUBFOLDER
-from score.spike_check import CLEAN_BINARY, HOST_ROLE, RV64_ROLE
+from score.spike_check import (
+    CLEAN_BINARY,
+    HELD_GROUP,
+    HOST_ROLE,
+    RV64_ROLE,
+    WORKING_GROUP,
+    Group,
+)
 from score.variants.stage_names import VariantStage
 
 
@@ -51,6 +58,15 @@ SUMMARY_FILE = "summary.json"
 # Every variant runs the same accuracy windows and counts the same windows, so their results line up with each other and with the baseline's
 SCOPES = [Scope.SCREEN]
 COUNT_WINDOWS = CountWindows.MIDDLE
+
+# The accuracy scopes of each series group: the held-back picks run every window of the held-back series
+GROUP_SCOPES: dict[Group, list[Scope]] = {
+    WORKING_GROUP: SCOPES,
+    HELD_GROUP: [Scope.HELD],
+}
+
+# Opens the label of a held-back run, before any `--suffix`, so it never collides with a working label
+HELD_SUFFIX = "-held"
 
 # The field of `ReferenceCheck` that holds nested records, which its reader builds before the check itself
 REFERENCE_WINDOWS_FIELD = "windows"
@@ -437,7 +453,11 @@ def read_collect(folder: Path) -> CollectRecord | None:
 
 
 def units_complete(
-    folder: Path, identity: LabelIdentity, series: list[Series], window_cap: int | None
+    folder: Path,
+    identity: LabelIdentity,
+    series: list[Series],
+    window_cap: int | None,
+    group: Group,
 ) -> bool:
     """Check that every accuracy and instruction unit of the chosen series has a result made by the label's binaries.
 
@@ -451,6 +471,8 @@ def units_complete(
         The chosen series.
     window_cap : int or None
         The most windows kept of each scope range.
+    group : Group
+        The series group, which decides the accuracy scopes.
 
     Returns
     -------
@@ -459,7 +481,9 @@ def units_complete(
     """
 
     # The same units `run` makes with these options, so a unit counts here exactly when `run` would skip it
-    accuracy = accuracy_units(series, SCOPES, window_cap, HOST_CHUNK_CHANNEL_WINDOWS)
+    accuracy = accuracy_units(
+        series, GROUP_SCOPES[group], window_cap, HOST_CHUNK_CHANNEL_WINDOWS
+    )
     instructions = instruction_units(series, COUNT_WINDOWS)
     found_accuracy, _ = find_results(folder, accuracy, identity.sha256)
     found_instructions, _ = find_results(folder, instructions, identity.sha256)
@@ -469,7 +493,11 @@ def units_complete(
 
 
 def run_missing(
-    folder: Path, identity: LabelIdentity, selection: Selection, working: list[Series]
+    folder: Path,
+    identity: LabelIdentity,
+    selection: Selection,
+    group_series: list[Series],
+    group: Group,
 ) -> bool:
     """Check whether `run` still has units to make for a label.
 
@@ -481,18 +509,20 @@ def run_missing(
         The label's identity, whose hashes the results must carry.
     selection : Selection
         The windows the label was asked to run.
-    working : list[Series]
-        Every working series, which the selection picks from.
+    group_series : list[Series]
+        Every series of the label's group, which the selection picks from.
+    group : Group
+        The label's series group.
 
     Returns
     -------
     bool
-        True when the selection names a series that isn't working, or some unit of it has no result.
+        True when the selection names a series outside the group, or some unit of it has no result.
     """
 
-    chosen = [one for one in working if one.stem in selection.series]
+    chosen = [one for one in group_series if one.stem in selection.series]
     return len(chosen) != len(selection.series) or not units_complete(
-        folder, identity, chosen, selection.window_cap
+        folder, identity, chosen, selection.window_cap, group
     )
 
 
@@ -604,7 +634,7 @@ def stack_name(identity: LabelIdentity) -> str:
 
 
 def missing_stages(
-    top: Path, data: Path, label: str, working: list[Series]
+    top: Path, data: Path, label: str, group_series: list[Series], group: Group
 ) -> list[str]:
     """Name what a variant's label still lacks of everything the command makes, except `summary.json`.
 
@@ -616,13 +646,15 @@ def missing_stages(
         The folder with the data.
     label : str
         The variant's label.
-    working : list[Series]
-        Every working series, which the label's selection picks from.
+    group_series : list[Series]
+        Every series of the label's group, which its selection picks from.
+    group : Group
+        The label's series group.
 
     Returns
     -------
     list[str]
-        One short text per missing part: the reference check, the run, the collect, which says how many problems the last one found when it did read the label's units, and the profile, or for a variant with a stride its stack's profile and its build record. Empty when none is missing. Anything unreadable gives `MISSING_UNREADABLE` alone.
+        One short text per missing part: the reference check, the run, the collect, which says how many problems the last one found when it did read the label's units, and for a working label the profile, or for a variant with a stride its stack's profile and its build record. A held-back label has no profile. Empty when none is missing. Anything unreadable gives `MISSING_UNREADABLE` alone.
     """
 
     folder = label_folder(data, label)
@@ -648,12 +680,12 @@ def missing_stages(
     if identity is None or selection is None:
         missing += [VariantStage.RUN, VariantStage.COLLECT]
         # Without an identity the stride is unknown, so a variant with a stride lists the profile here too; it isn't done either way
-        if profile is None:
+        if group == WORKING_GROUP and profile is None:
             missing.append(VariantStage.PROFILE)
         return missing
 
     # Step 3: every unit of the selection has a result
-    if run_missing(folder, identity, selection, working):
+    if run_missing(folder, identity, selection, group_series, group):
         missing.append(VariantStage.RUN)
 
     # Step 4: both collected tables exist, from a collect that found no problem
@@ -662,7 +694,9 @@ def missing_stages(
     elif collect is not None and collect.problems:
         missing.append(f"collect found {collect.problems} problems")
 
-    # Step 5: the profile was made with the rv64 binary the label fixed. A variant with a stride has none: it needs its stack's tables and its own copy of the build record
+    # Step 5: the profile was made with the rv64 binary the label fixed. A variant with a stride has none: it needs its stack's tables and its own copy of the build record. Cycles, memory and traffic don't depend on the data, so a held-back label has no profile
+    if group == HELD_GROUP:
+        return missing
     if label_stride(identity) == DEFAULT_STRIDE:
         if identity.sha256.get(RV64_ROLE) != profile:
             missing.append(VariantStage.PROFILE)
@@ -678,7 +712,9 @@ def missing_stages(
     return missing
 
 
-def is_done(top: Path, data: Path, label: str, working: list[Series]) -> bool:
+def is_done(
+    top: Path, data: Path, label: str, group_series: list[Series], group: Group
+) -> bool:
     """Check on disk whether a variant's label holds every result the command makes.
 
     Parameters
@@ -689,8 +725,10 @@ def is_done(top: Path, data: Path, label: str, working: list[Series]) -> bool:
         The folder with the data.
     label : str
         The variant's label.
-    working : list[Series]
-        Every working series, which the label's selection picks from.
+    group_series : list[Series]
+        Every series of the label's group, which its selection picks from.
+    group : Group
+        The label's series group.
 
     Returns
     -------
@@ -699,7 +737,9 @@ def is_done(top: Path, data: Path, label: str, working: list[Series]) -> bool:
     """
 
     summary = tables_folder(top, label) / SUMMARY_FILE
-    return not missing_stages(top, data, label, working) and summary.is_file()
+    return (
+        not missing_stages(top, data, label, group_series, group) and summary.is_file()
+    )
 
 
 def delete_for_redo(top: Path, data: Path, label: str) -> list[Path]:

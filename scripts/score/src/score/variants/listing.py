@@ -18,8 +18,10 @@ from pathlib import Path
 # The only top-level key of the file: an array of tables, one per variant
 VARIANT_KEY = "variant"
 
-# The only key a variant table has: its settings, an inline table of setting name to value
+# The keys a variant table has: its settings, an inline table of setting name to value, and optionally whether it is one of the picks run on the held-back series
 SETTINGS_KEY = "settings"
+HELD_KEY = "held"
+VARIANT_KEYS = {SETTINGS_KEY, HELD_KEY}
 
 # The folder with the Makefile, under the git top level
 MAKE_FOLDER = "tspulse"
@@ -46,9 +48,12 @@ class VariantEntry:
     ----------
     settings : dict[str, str]
         Each setting's name and its value, as passed to `make`.
+    held : bool
+        Whether the variant is one of the picks run on the held-back series.
     """
 
     settings: dict[str, str]
+    held: bool = False
 
 
 # ░█▄█░█▀▀░▀█▀░█░█░█▀█░█▀▄░█▀▀
@@ -105,7 +110,7 @@ def read_listing(path: Path, top: Path) -> list[VariantEntry]:
     Raises
     ------
     VariantError
-        When the file can't be read, has a key other than `variant`, has a variant with an empty `settings` or a key other than `settings`, has a value that isn't a string, names a setting `make` doesn't have, or repeats a variant's settings.
+        When the file can't be read, has a key other than `variant`, has a variant with an empty `settings`, a key other than `settings` and `held`, or a `held` that isn't a boolean, has a value that isn't a string, names a setting `make` doesn't have, or repeats a variant's settings.
     """
 
     # Step 1: read the file and check its keys
@@ -131,10 +136,15 @@ def read_listing(path: Path, top: Path) -> list[VariantEntry]:
     entries: list[VariantEntry] = []
     for number, table in enumerate(tables, start=1):
         where = f"{path} variant {number}"
-        extra_keys = sorted(table.keys() - {SETTINGS_KEY})
+        extra_keys = sorted(table.keys() - VARIANT_KEYS)
         if extra_keys:
             raise VariantError(
-                f"{where} has unknown keys {extra_keys}: only `{SETTINGS_KEY}` is allowed."
+                f"{where} has unknown keys {extra_keys}: only `{SETTINGS_KEY}` and `{HELD_KEY}` are allowed."
+            )
+        held = table.get(HELD_KEY, False)
+        if not isinstance(held, bool):
+            raise VariantError(
+                f"{where} gives {HELD_KEY} the value {held!r}: it is true or false."
             )
         settings = table.get(SETTINGS_KEY)
         if not isinstance(settings, dict) or not settings:
@@ -150,8 +160,44 @@ def read_listing(path: Path, top: Path) -> list[VariantEntry]:
                 raise VariantError(
                     f'{where} gives {name} the value {value!r}: values are strings, such as "on".'
                 )
-        entry = VariantEntry(settings=dict(settings))
+        entry = VariantEntry(settings=dict(settings), held=held)
         if any(other.settings == entry.settings for other in entries):
             raise VariantError(f"{where} repeats the settings of an earlier variant.")
         entries.append(entry)
     return entries
+
+
+def find_stack(entries: list[VariantEntry]) -> VariantEntry:
+    """Find the stack of the held-back picks: the one entry whose settings every other held entry contains.
+
+    Parameters
+    ----------
+    entries : list[VariantEntry]
+        Every entry of the list.
+
+    Returns
+    -------
+    VariantEntry
+        The held entry that every other held entry builds on, which is the exact reference the picks' differences are paired against.
+
+    Raises
+    ------
+    VariantError
+        When no entry is held, or the held ones don't have exactly one entry that all the others contain.
+    """
+
+    held = [entry for entry in entries if entry.held]
+    stacks = [
+        entry
+        for entry in held
+        if all(
+            entry.settings.items() <= other.settings.items()
+            for other in held
+            if other is not entry
+        )
+    ]
+    if len(stacks) != 1:
+        raise VariantError(
+            f"The held variants ({len(held)} marked `{HELD_KEY} = true`) need exactly one whose settings every other contains, the stack; found {len(stacks)}."
+        )
+    return stacks[0]

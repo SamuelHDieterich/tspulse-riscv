@@ -24,14 +24,15 @@ from score.benchmark.scope import Series
 # Internal
 from score.build_record import BASELINE_NAME, BUILD_FILE, DEFAULT_STRIDE
 from score.profile.cli import profile
-from score.spike_check import CLEAN_BINARY
-from score.variants.building import ResolvedVariant, build_variant
+from score.spike_check import CLEAN_BINARY, HELD_GROUP, Group
+from score.variants.building import BuiltVariant, ResolvedVariant, build_variant
+from score.variants.held_summary import held_status_text, write_held_variant_summary
 from score.variants.listing import VariantError
 from score.variants.reference import check_reference
 from score.variants.stage_names import VariantStage
 from score.variants.state import (
     COUNT_WINDOWS,
-    SCOPES,
+    GROUP_SCOPES,
     Selection,
     binaries_problem,
     collect_missing,
@@ -86,6 +87,12 @@ class RunOptions:
         The label of this computer, or None for the hostname.
     log_name : str
         The log file's name in each label's folder, the one `run` appends to.
+    group : Group
+        The series group of every label: the working series, or the held-back ones.
+    shard : str or None
+        `K/N`, to run only that share of each label's units and stop after the run stage, or None for every unit.
+    stack_label : str or None
+        The held-back stack's label, which the picks are paired with. None for the working group.
     """
 
     suffix: str
@@ -94,6 +101,9 @@ class RunOptions:
     spike_jobs: int
     machine: str | None
     log_name: str
+    group: Group
+    shard: str | None
+    stack_label: str | None
 
 
 @dataclass
@@ -237,7 +247,9 @@ def _skip(stage: VariantStage, reason: str, log: Log) -> None:
     log.line(f"{LINE_PREFIX}: {stage} skipped: {reason}")
 
 
-def _run_skippable(label: str, data: Path, working: list[Series], redo: bool) -> bool:
+def _run_skippable(
+    label: str, data: Path, group_series: list[Series], group: Group, redo: bool
+) -> bool:
     """Check whether `run` has nothing left to do for a label.
 
     Parameters
@@ -246,8 +258,10 @@ def _run_skippable(label: str, data: Path, working: list[Series], redo: bool) ->
         The variant's label.
     data : Path
         The folder with the data.
-    working : list[Series]
-        Every working series.
+    group_series : list[Series]
+        Every series of the label's group.
+    group : Group
+        The label's series group.
     redo : bool
         Whether the label is being started again, which `run` must do even when its units are all there.
 
@@ -267,7 +281,7 @@ def _run_skippable(label: str, data: Path, working: list[Series], redo: bool) ->
         return False
     if identity is None or selection is None:
         return False
-    return not run_missing(folder, identity, selection, working)
+    return not run_missing(folder, identity, selection, group_series, group)
 
 
 def _collect_skippable(folder: Path, tables: Path, run_skipped: bool) -> bool:
@@ -300,13 +314,93 @@ def _collect_skippable(folder: Path, tables: Path, run_skipped: bool) -> bool:
     return not collect_missing(tables, identity, collect) and collect.problems == 0
 
 
+def _profile_step(
+    label: str,
+    folder: Path,
+    tables: Path,
+    built: BuiltVariant,
+    options: RunOptions,
+    top: Path,
+    data: Path,
+    log: Log,
+    outcome: VariantOutcome,
+) -> bool:
+    """Make a working label's profile, or derive it from its stack's, unless it stands already.
+
+    The profile stays while the rv64 binary is the one its tables were made with.
+
+    Parameters
+    ----------
+    label : str
+        The variant's label.
+    folder : Path
+        The label's folder.
+    tables : Path
+        The label's tracked results folder.
+    built : BuiltVariant
+        The variant's builds.
+    options : RunOptions
+        How this machine runs the variants.
+    top : Path
+        The git top level.
+    data : Path
+        The folder with the data.
+    log : Log
+        The label's log.
+    outcome : VariantOutcome
+        The variant's outcome, which gets the problem or the interruption.
+
+    Returns
+    -------
+    bool
+        False when the stage failed or was interrupted, so the variant's turn ends.
+    """
+
+    try:
+        identity = read_identity(folder)
+    except (OSError, ValueError) as error:
+        _problem(log, outcome, f"cannot read the label's identity: {error}")
+        return False
+    # A stride variant takes its stack's profile, so the stack must have one; only its build record is copied
+    if label_stride(identity) != DEFAULT_STRIDE:
+        try:
+            stack = stack_name(identity)
+            if read_profile_hash(tables_folder(top, stack)) is None:
+                _problem(
+                    log, outcome, f"cannot derive the profile: {stack} has no profile"
+                )
+                return False
+            log.line(f"{LINE_PREFIX}: {VariantStage.PROFILE}: derived from {stack}")
+            tables.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(built.rv64_folder / BUILD_FILE, tables / BUILD_FILE)
+        except (OSError, ValueError) as error:
+            _problem(log, outcome, f"cannot derive the profile: {error}")
+            return False
+    elif _profile_hash(tables) == built.rv64.sha256[CLEAN_BINARY]:
+        _skip(
+            VariantStage.PROFILE, "the profile's build.json holds this rv64 binary", log
+        )
+    else:
+        ok, _ = _stage(
+            VariantStage.PROFILE,
+            lambda: profile(
+                label=label, build=built.rv64_folder, jobs=options.spike_jobs, data=data
+            ),
+            log,
+            outcome,
+        )
+        if not ok:
+            return False
+    return True
+
+
 def run_variant(
     variant: ResolvedVariant,
     options: RunOptions,
     redo: bool,
     top: Path,
     data: Path,
-    working: list[Series],
+    group_series: list[Series],
 ) -> VariantOutcome:
     """Build a variant and run each stage whose results its label lacks, logging to the label's own log.
 
@@ -324,8 +418,8 @@ def run_variant(
         The git top level.
     data : Path
         The folder with the data.
-    working : list[Series]
-        Every working series.
+    group_series : list[Series]
+        Every series of the options' group.
 
     Returns
     -------
@@ -389,7 +483,8 @@ def run_variant(
         log.line(f"{LINE_PREFIX}: {differing} of the reference windows differ")
 
     # Step 6: the accuracy and counted windows
-    run_skipped = _run_skippable(label, data, working, redo)
+    held = options.group == HELD_GROUP
+    run_skipped = _run_skippable(label, data, group_series, options.group, redo)
     if run_skipped:
         _skip(VariantStage.RUN, "every unit of selection.json has a result", log)
     else:
@@ -402,10 +497,11 @@ def run_variant(
                 jobs=options.jobs,
                 spike_jobs=options.spike_jobs,
                 series=options.selection.series,
-                scope=list(SCOPES),
+                scope=list(GROUP_SCOPES[options.group]),
                 count_windows=COUNT_WINDOWS,
                 window_cap=options.selection.window_cap,
                 redo=redo,
+                shard=options.shard,
                 machine=options.machine,
                 data=data,
             ),
@@ -415,7 +511,14 @@ def run_variant(
         if not ok:
             return outcome
 
-    # Step 7: the tables, rescored when `run` ran or the last collect found a problem, since a problem stays until a collect finds none
+    # A shard holds only some of the label's units, so the label is merged and collected where all of them are
+    if options.shard is not None:
+        log.line(
+            f"{LINE_PREFIX}: shard {options.shard} is done: copy this label's folder to the machine that merges the shards and run `benchmark variants` there without --shard to collect it"
+        )
+        return outcome
+
+    # Step 7: the tables, rescored when `run` ran or the last collect found a problem, since a problem stays until a collect finds none. A held-back label has no baseline run to compare with: its summary pairs it with the stack's tables itself
     if _collect_skippable(folder, tables, run_skipped):
         _skip(
             VariantStage.COLLECT,
@@ -425,7 +528,7 @@ def run_variant(
     else:
         ok, collected = _stage(
             VariantStage.COLLECT,
-            lambda: collect_label(label, AGAINST, data, log.line),
+            lambda: collect_label(label, None if held else AGAINST, data, log.line),
             log,
             outcome,
         )
@@ -443,70 +546,65 @@ def run_variant(
             _problem(log, outcome, "the label has no label.json after collect")
             return outcome
         write_collect_record(folder, collected.problems, identity.sha256)
-        # The tables are written either way, so the profile still runs
+        # The tables are written either way, so the later stages still run
         if collected.problems:
             _problem(log, outcome, f"collect found {collected.problems} problems")
 
-    # Step 8: the profile, kept while the rv64 binary is the one its tables were made with
-    try:
-        identity = read_identity(folder)
-    except (OSError, ValueError) as error:
-        _problem(log, outcome, f"cannot read the label's identity: {error}")
-        return outcome
-    # A stride variant takes its stack's profile, so the stack must have one; only its build record is copied
-    if label_stride(identity) != DEFAULT_STRIDE:
+    # Step 8: the profile of a working label. A held-back label keeps only the build record, for its summary
+    if held:
         try:
-            stack = stack_name(identity)
-            if read_profile_hash(tables_folder(top, stack)) is None:
-                _problem(
-                    log, outcome, f"cannot derive the profile: {stack} has no profile"
-                )
-                return outcome
-            log.line(f"{LINE_PREFIX}: {VariantStage.PROFILE}: derived from {stack}")
             tables.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(built.rv64_folder / BUILD_FILE, tables / BUILD_FILE)
-        except (OSError, ValueError) as error:
-            _problem(log, outcome, f"cannot derive the profile: {error}")
+        except OSError as error:
+            _problem(log, outcome, f"cannot copy the build record: {error}")
             return outcome
-    elif _profile_hash(tables) == built.rv64.sha256[CLEAN_BINARY]:
-        _skip(
-            VariantStage.PROFILE, "the profile's build.json holds this rv64 binary", log
-        )
-    else:
-        ok, _ = _stage(
-            VariantStage.PROFILE,
-            lambda: profile(
-                label=label, build=built.rv64_folder, jobs=options.spike_jobs, data=data
+    elif not _profile_step(
+        label, folder, tables, built, options, top, data, log, outcome
+    ):
+        return outcome
+
+    # Step 9: the summary, cheap enough to rewrite on every call, whether the label is done or not. A held-back label's pairs it with the stack's tables; a working label's adds its exactness against the baseline
+    if held:
+        ok, held_written = _stage(
+            VariantStage.SUMMARY,
+            lambda: write_held_variant_summary(
+                top, data, label, variant, group_series, options.stack_label
             ),
             log,
             outcome,
         )
         if not ok:
             return outcome
-
-    # Step 9: the exactness and the summary, cheap enough to rewrite on every call, whether the label is done or not
-    ok, written = _stage(
-        VariantStage.SUMMARY,
-        lambda: write_variant_summary(top, data, label, variant, working),
-        log,
-        outcome,
-    )
-    if not ok:
-        return outcome
-    if written is not None:
-        summary, exactness = written
-        log.line(
-            f"{LINE_PREFIX}: {summary.verdict}, {exactness.windows_differing} of {exactness.windows_compared} windows differ, status: {status_text(summary)}"
+        if held_written is not None:
+            log.line(f"{LINE_PREFIX}: status: {held_status_text(held_written)}")
+    else:
+        ok, written = _stage(
+            VariantStage.SUMMARY,
+            lambda: write_variant_summary(top, data, label, variant, group_series),
+            log,
+            outcome,
         )
-        if exactness.left_out:
+        if not ok:
+            return outcome
+        if written is not None:
+            summary, exactness = written
             log.line(
-                f"{LINE_PREFIX}: left out of the comparison: {', '.join(exactness.left_out)}"
+                f"{LINE_PREFIX}: {summary.verdict}, {exactness.windows_differing} of {exactness.windows_compared} windows differ, status: {status_text(summary)}"
             )
-        for text in exactness.problems:
-            _problem(log, outcome, f"exactness: {text}")
+            if exactness.left_out:
+                log.line(
+                    f"{LINE_PREFIX}: left out of the comparison: {', '.join(exactness.left_out)}"
+                )
+            for text in exactness.problems:
+                _problem(log, outcome, f"exactness: {text}")
 
     # Step 10: whether the label now holds everything. A problem in this call means it doesn't, whatever is on disk
-    outcome.done = not outcome.problems and is_done(top, data, label, working)
+    outcome.done = not outcome.problems and is_done(
+        top, data, label, group_series, options.group
+    )
+    # A held-back label whose summary still names missing labels isn't final
+    if held and held_written is not None and held_written.missing:
+        outcome.done = False
     log.line(
         f"{LINE_PREFIX}: label {label} is {'done' if outcome.done else 'not done'}"
     )

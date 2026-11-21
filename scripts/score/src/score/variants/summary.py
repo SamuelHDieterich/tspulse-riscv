@@ -34,6 +34,7 @@ from score.profile.tables import (
     MEMORY_TABLE,
     TRAFFIC_TABLE,
 )
+from score.spike_check import WORKING_GROUP
 from score.variants.building import ResolvedVariant
 from score.variants.exactness import Exactness, measure_exactness
 from score.variants.formula import evaluate_formula
@@ -449,7 +450,7 @@ def _missing(
         What the done rule lacks except for the summary itself, and the left-out series and exactness problems. Empty when the label is done.
     """
 
-    lacking = missing_stages(top, data, label, working)
+    lacking = missing_stages(top, data, label, working, WORKING_GROUP)
     if exactness.left_out:
         lacking.append(f"{len(exactness.left_out)} series left out")
     if exactness.problems:

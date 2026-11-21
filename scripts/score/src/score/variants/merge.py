@@ -90,6 +90,32 @@ def merged_path(top: Path, suffix: str) -> Path:
     return top / TABLES_FOLDER / f"{MERGED_NAME}{suffix}{MERGED_EXTENSION}"
 
 
+def layout_table(lines: list[list[str]]) -> str:
+    """Lay out rows of text as aligned columns.
+
+    Parameters
+    ----------
+    lines : list[list[str]]
+        The rows, the header first, each with as many cells as the header.
+
+    Returns
+    -------
+    str
+        One line per row, its cells padded to the column's width, an empty cell shown as `-`.
+    """
+
+    shown = [[cell or EMPTY_CELL for cell in line] for line in lines]
+    widths = [
+        max(len(line[column]) for line in shown) for column in range(len(lines[0]))
+    ]
+    return "\n".join(
+        "  ".join(
+            cell.ljust(width) for cell, width in zip(line, widths, strict=True)
+        ).rstrip()
+        for line in shown
+    )
+
+
 def merge_variants(
     top: Path, variants: list[ResolvedVariant], suffix: str
 ) -> list[Summary]:
@@ -164,13 +190,4 @@ def short_form(summaries: list[Summary]) -> str:
                 f"{cycles.low} to {cycles.high}" if cycles else "",
             ]
         )
-    shown = [[cell or EMPTY_CELL for cell in line] for line in lines]
-    widths = [
-        max(len(line[column]) for line in shown) for column in range(len(SHORT_HEADER))
-    ]
-    return "\n".join(
-        "  ".join(
-            cell.ljust(width) for cell, width in zip(line, widths, strict=True)
-        ).rstrip()
-        for line in shown
-    )
+    return layout_table(lines)
