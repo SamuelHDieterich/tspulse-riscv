@@ -1,0 +1,76 @@
+{
+  "name": "linear-blocked+unroll-on+math-bundled+outputs-read",
+  "settings": {
+    "LINEAR": "blocked",
+    "UNROLL": "on",
+    "MATH": "bundled",
+    "OUTPUTS": "read"
+  },
+  "build": {
+    "commit": "3598b1446bbae5892f86a5d38bce1f4418903e07",
+    "tree": "c517aa384465dfe06e00f843aa69f4eb97e5c0c5",
+    "dirty": false
+  },
+  "spike_check": {
+    "units_compared": 140,
+    "units_differing": 0
+  },
+  "instructions": {
+    "u_mean": 972503930.1833333,
+    "m_mean": 966647397.2965758
+  },
+  "vus_pr": {
+    "U": {
+      "time": {
+        "series": 120,
+        "mean": 0.4544827602542148,
+        "source_mean": 0.4820674629817874,
+        "ibm_mean": 0.45448325
+      },
+      "fft": {
+        "series": 120,
+        "mean": 0.4565194417964859,
+        "source_mean": 0.483906574991626,
+        "ibm_mean": 0.45651933333333333
+      },
+      "forecast": {
+        "series": 120,
+        "mean": 0.3364184513511921,
+        "source_mean": 0.37154418439930587,
+        "ibm_mean": 0.33644125
+      },
+      "ensemble": {
+        "series": 120,
+        "mean": 0.4874344754882972,
+        "source_mean": 0.5054017301493632,
+        "ibm_mean": 0.48743424999999996
+      }
+    },
+    "M": {
+      "time": {
+        "series": 20,
+        "mean": 0.20372884271547242,
+        "source_mean": 0.21594512200869942,
+        "ibm_mean": 0.20372949999999998
+      },
+      "fft": {
+        "series": 20,
+        "mean": 0.20382480521069452,
+        "source_mean": 0.21701466441231346,
+        "ibm_mean": 0.2038245
+      },
+      "forecast": {
+        "series": 20,
+        "mean": 0.2411059943272938,
+        "source_mean": 0.2427218686887367,
+        "ibm_mean": 0.24110649999999997
+      },
+      "ensemble": {
+        "series": 20,
+        "mean": 0.22738377317167244,
+        "source_mean": 0.21441914068585463,
+        "ibm_mean": 0.22738399999999998
+      }
+    }
+  }
+}

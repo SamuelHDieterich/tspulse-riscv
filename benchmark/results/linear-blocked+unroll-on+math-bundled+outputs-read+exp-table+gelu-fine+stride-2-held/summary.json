@@ -1,0 +1,145 @@
+{
+  "name": "linear-blocked+unroll-on+math-bundled+outputs-read+exp-table+gelu-fine+stride-2",
+  "settings": {
+    "LINEAR": "blocked",
+    "UNROLL": "on",
+    "MATH": "bundled",
+    "OUTPUTS": "read",
+    "EXP": "table",
+    "GELU": "fine",
+    "STRIDE": "2"
+  },
+  "build": {
+    "commit": "3598b1446bbae5892f86a5d38bce1f4418903e07",
+    "tree": "c517aa384465dfe06e00f843aa69f4eb97e5c0c5",
+    "dirty": false
+  },
+  "spike_check": {
+    "units_compared": 140,
+    "units_differing": 0
+  },
+  "instructions": {
+    "u_mean": 423891243.5,
+    "m_mean": 421856322.78236365,
+    "u_ratio": 0.4358761238323113,
+    "m_ratio": 0.4364117918924417
+  },
+  "vus_pr": {
+    "U": {
+      "time": {
+        "series": 120,
+        "mean": 0.45526312680033726,
+        "source_mean": 0.48297932957128925,
+        "ibm_mean": 0.45448325,
+        "paired": {
+          "series": 120,
+          "mean": 0.0007803665461224908,
+          "worst_series": "260_IOPS_id_1_WebService_tr_5000_1st_11804",
+          "worst": 0.05652983481366994,
+          "std": 0.009982627294696216,
+          "error": 0.0009112850254119815
+        }
+      },
+      "fft": {
+        "series": 120,
+        "mean": 0.45594937374310024,
+        "source_mean": 0.48364869268004823,
+        "ibm_mean": 0.45651933333333333,
+        "paired": {
+          "series": 120,
+          "mean": -0.0005700680533856394,
+          "worst_series": "467_UCR_id_165_Environment_tr_6166_1st_19280",
+          "worst": -0.14782947714923533,
+          "std": 0.01931551009759343,
+          "error": 0.0017632567650284557
+        }
+      },
+      "forecast": {
+        "series": 120,
+        "mean": 0.33064114381208604,
+        "source_mean": 0.3668543571312969,
+        "ibm_mean": 0.33644125,
+        "paired": {
+          "series": 120,
+          "mean": -0.005777307539106001,
+          "worst_series": "117_WSD_id_89_WebService_tr_3251_1st_3351",
+          "worst": 0.32324846827337184,
+          "std": 0.05034787901845948,
+          "error": 0.004596111510158553
+        }
+      },
+      "ensemble": {
+        "series": 120,
+        "mean": 0.4812618550755283,
+        "source_mean": 0.5025597131251868,
+        "ibm_mean": 0.48743424999999996,
+        "paired": {
+          "series": 120,
+          "mean": -0.00617262041276895,
+          "worst_series": "117_WSD_id_89_WebService_tr_3251_1st_3351",
+          "worst": 0.30589755429402055,
+          "std": 0.05776065528210558,
+          "error": 0.005272802305714859
+        }
+      }
+    },
+    "M": {
+      "time": {
+        "series": 20,
+        "mean": 0.20561589987572043,
+        "source_mean": 0.2172387466308976,
+        "ibm_mean": 0.20372949999999998,
+        "paired": {
+          "series": 20,
+          "mean": 0.0018870571602480242,
+          "worst_series": "015_MSL_id_14_Sensor_tr_575_1st_1250",
+          "worst": 0.029035308676797267,
+          "std": 0.006808595055091771,
+          "error": 0.0015224481374454125
+        }
+      },
+      "fft": {
+        "series": 20,
+        "mean": 0.20397302126392117,
+        "source_mean": 0.21717524634708837,
+        "ibm_mean": 0.2038245,
+        "paired": {
+          "series": 20,
+          "mean": 0.00014821605322662816,
+          "worst_series": "169_SMAP_id_26_Sensor_tr_1811_1st_4510",
+          "worst": -0.016612236350866616,
+          "std": 0.005479336623356443,
+          "error": 0.0012252169161429168
+        }
+      },
+      "forecast": {
+        "series": 20,
+        "mean": 0.09852298491914643,
+        "source_mean": 0.123805576261742,
+        "ibm_mean": 0.24110649999999997,
+        "paired": {
+          "series": 20,
+          "mean": -0.14258300940814736,
+          "worst_series": "116_TAO_id_1_Environment_tr_500_1st_3",
+          "worst": -0.7386581906919114,
+          "std": 0.2949260476614745,
+          "error": 0.06594746909063999
+        }
+      },
+      "ensemble": {
+        "series": 20,
+        "mean": 0.19335745607385804,
+        "source_mean": 0.1853916213052725,
+        "ibm_mean": 0.22738399999999998,
+        "paired": {
+          "series": 20,
+          "mean": -0.03402631709781443,
+          "worst_series": "125_TAO_id_10_Environment_tr_500_1st_9",
+          "worst": -0.2726085737019014,
+          "std": 0.07901578653836767,
+          "error": 0.01766846699954029
+        }
+      }
+    }
+  }
+}

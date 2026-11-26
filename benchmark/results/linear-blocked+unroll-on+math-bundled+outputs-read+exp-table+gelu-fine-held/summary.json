@@ -1,0 +1,144 @@
+{
+  "name": "linear-blocked+unroll-on+math-bundled+outputs-read+exp-table+gelu-fine",
+  "settings": {
+    "LINEAR": "blocked",
+    "UNROLL": "on",
+    "MATH": "bundled",
+    "OUTPUTS": "read",
+    "EXP": "table",
+    "GELU": "fine"
+  },
+  "build": {
+    "commit": "3598b1446bbae5892f86a5d38bce1f4418903e07",
+    "tree": "c517aa384465dfe06e00f843aa69f4eb97e5c0c5",
+    "dirty": false
+  },
+  "spike_check": {
+    "units_compared": 140,
+    "units_differing": 0
+  },
+  "instructions": {
+    "u_mean": 847781810.4,
+    "m_mean": 843712676.9313333,
+    "u_ratio": 0.8717515519347865,
+    "m_ratio": 0.8728236162337434
+  },
+  "vus_pr": {
+    "U": {
+      "time": {
+        "series": 120,
+        "mean": 0.4544826784831489,
+        "source_mean": 0.48206736717233684,
+        "ibm_mean": 0.45448325,
+        "paired": {
+          "series": 120,
+          "mean": -8.177106591424253e-08,
+          "worst_series": "536_SMAP_id_6_Sensor_tr_2160_1st_5600",
+          "worst": -9.77255904277552e-06,
+          "std": 8.99231546321507e-07,
+          "error": 8.208823372342351e-08
+        }
+      },
+      "fft": {
+        "series": 120,
+        "mean": 0.45651944279049766,
+        "source_mean": 0.4839065324751795,
+        "ibm_mean": 0.45651933333333333,
+        "paired": {
+          "series": 120,
+          "mean": 9.94011739368847e-10,
+          "worst_series": "364_UCR_id_62_Sensor_tr_2833_1st_5988",
+          "worst": 3.7836644961597443e-06,
+          "std": 3.791421581200036e-07,
+          "error": 3.4610785417252743e-08
+        }
+      },
+      "forecast": {
+        "series": 120,
+        "mean": 0.336418183655577,
+        "source_mean": 0.37154398359639795,
+        "ibm_mean": 0.33644125,
+        "paired": {
+          "series": 120,
+          "mean": -2.6769561503971793e-07,
+          "worst_series": "181_SMD_id_4_Facility_tr_5000_1st_15144",
+          "worst": -1.76893782679044e-05,
+          "std": 2.0891749475742317e-06,
+          "error": 1.907147075601799e-07
+        }
+      },
+      "ensemble": {
+        "series": 120,
+        "mean": 0.487434484038304,
+        "source_mean": 0.5054017227704127,
+        "ibm_mean": 0.48743424999999996,
+        "paired": {
+          "series": 120,
+          "mean": 8.550006740278004e-09,
+          "worst_series": "184_SMD_id_7_Facility_tr_7119_1st_15849",
+          "worst": 4.4241721064430806e-06,
+          "std": 4.786872793013601e-07,
+          "error": 4.369797014402179e-08
+        }
+      }
+    },
+    "M": {
+      "time": {
+        "series": 20,
+        "mean": 0.2037288431311577,
+        "source_mean": 0.21594512339431696,
+        "ibm_mean": 0.20372949999999998,
+        "paired": {
+          "series": 20,
+          "mean": 4.1568526676361016e-10,
+          "worst_series": "081_LTDB_id_3_Medical_tr_500_1st_26",
+          "worst": 8.313705335272203e-09,
+          "std": 1.8590010274571328e-09,
+          "error": 4.1568526676361016e-10
+        }
+      },
+      "fft": {
+        "series": 20,
+        "mean": 0.20382476570604563,
+        "source_mean": 0.21701453278075256,
+        "ibm_mean": 0.2038245,
+        "paired": {
+          "series": 20,
+          "mean": -3.950464886326444e-08,
+          "worst_series": "081_LTDB_id_3_Medical_tr_500_1st_26",
+          "worst": -7.894857535495348e-07,
+          "std": 1.765278251877314e-07,
+          "error": 3.94728217039967e-08
+        }
+      },
+      "forecast": {
+        "series": 20,
+        "mean": 0.24105927280497377,
+        "source_mean": 0.24270236443794735,
+        "ibm_mean": 0.24110649999999997,
+        "paired": {
+          "series": 20,
+          "mean": -4.67215223200295e-05,
+          "worst_series": "148_SMAP_id_5_Sensor_tr_2011_1st_5060",
+          "worst": -0.0009342527804401465,
+          "std": 0.0002089031971962094,
+          "error": 4.6712174964776766e-05
+        }
+      },
+      "ensemble": {
+        "series": 20,
+        "mean": 0.2273837185791697,
+        "source_mean": 0.21441895871084538,
+        "ibm_mean": 0.22738399999999998,
+        "paired": {
+          "series": 20,
+          "mean": -5.459250276718813e-08,
+          "worst_series": "081_LTDB_id_3_Medical_tr_500_1st_26",
+          "worst": -9.911925293870638e-07,
+          "std": 2.2159561803058005e-07,
+          "error": 4.95502865432455e-08
+        }
+      }
+    }
+  }
+}

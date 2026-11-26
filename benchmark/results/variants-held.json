@@ -1,0 +1,512 @@
+[
+  {
+    "name": "linear-blocked+unroll-on+math-bundled+outputs-read",
+    "settings": {
+      "LINEAR": "blocked",
+      "UNROLL": "on",
+      "MATH": "bundled",
+      "OUTPUTS": "read"
+    },
+    "build": {
+      "commit": "3598b1446bbae5892f86a5d38bce1f4418903e07",
+      "tree": "c517aa384465dfe06e00f843aa69f4eb97e5c0c5",
+      "dirty": false
+    },
+    "spike_check": {
+      "units_compared": 140,
+      "units_differing": 0
+    },
+    "instructions": {
+      "u_mean": 972503930.1833333,
+      "m_mean": 966647397.2965758
+    },
+    "vus_pr": {
+      "U": {
+        "time": {
+          "series": 120,
+          "mean": 0.4544827602542148,
+          "source_mean": 0.4820674629817874,
+          "ibm_mean": 0.45448325
+        },
+        "fft": {
+          "series": 120,
+          "mean": 0.4565194417964859,
+          "source_mean": 0.483906574991626,
+          "ibm_mean": 0.45651933333333333
+        },
+        "forecast": {
+          "series": 120,
+          "mean": 0.3364184513511921,
+          "source_mean": 0.37154418439930587,
+          "ibm_mean": 0.33644125
+        },
+        "ensemble": {
+          "series": 120,
+          "mean": 0.4874344754882972,
+          "source_mean": 0.5054017301493632,
+          "ibm_mean": 0.48743424999999996
+        }
+      },
+      "M": {
+        "time": {
+          "series": 20,
+          "mean": 0.20372884271547242,
+          "source_mean": 0.21594512200869942,
+          "ibm_mean": 0.20372949999999998
+        },
+        "fft": {
+          "series": 20,
+          "mean": 0.20382480521069452,
+          "source_mean": 0.21701466441231346,
+          "ibm_mean": 0.2038245
+        },
+        "forecast": {
+          "series": 20,
+          "mean": 0.2411059943272938,
+          "source_mean": 0.2427218686887367,
+          "ibm_mean": 0.24110649999999997
+        },
+        "ensemble": {
+          "series": 20,
+          "mean": 0.22738377317167244,
+          "source_mean": 0.21441914068585463,
+          "ibm_mean": 0.22738399999999998
+        }
+      }
+    }
+  },
+  {
+    "name": "linear-blocked+unroll-on+math-bundled+outputs-read+exp-table+gelu-fine",
+    "settings": {
+      "LINEAR": "blocked",
+      "UNROLL": "on",
+      "MATH": "bundled",
+      "OUTPUTS": "read",
+      "EXP": "table",
+      "GELU": "fine"
+    },
+    "build": {
+      "commit": "3598b1446bbae5892f86a5d38bce1f4418903e07",
+      "tree": "c517aa384465dfe06e00f843aa69f4eb97e5c0c5",
+      "dirty": false
+    },
+    "spike_check": {
+      "units_compared": 140,
+      "units_differing": 0
+    },
+    "instructions": {
+      "u_mean": 847781810.4,
+      "m_mean": 843712676.9313333,
+      "u_ratio": 0.8717515519347865,
+      "m_ratio": 0.8728236162337434
+    },
+    "vus_pr": {
+      "U": {
+        "time": {
+          "series": 120,
+          "mean": 0.4544826784831489,
+          "source_mean": 0.48206736717233684,
+          "ibm_mean": 0.45448325,
+          "paired": {
+            "series": 120,
+            "mean": -8.177106591424253e-08,
+            "worst_series": "536_SMAP_id_6_Sensor_tr_2160_1st_5600",
+            "worst": -9.77255904277552e-06,
+            "std": 8.99231546321507e-07,
+            "error": 8.208823372342351e-08
+          }
+        },
+        "fft": {
+          "series": 120,
+          "mean": 0.45651944279049766,
+          "source_mean": 0.4839065324751795,
+          "ibm_mean": 0.45651933333333333,
+          "paired": {
+            "series": 120,
+            "mean": 9.94011739368847e-10,
+            "worst_series": "364_UCR_id_62_Sensor_tr_2833_1st_5988",
+            "worst": 3.7836644961597443e-06,
+            "std": 3.791421581200036e-07,
+            "error": 3.4610785417252743e-08
+          }
+        },
+        "forecast": {
+          "series": 120,
+          "mean": 0.336418183655577,
+          "source_mean": 0.37154398359639795,
+          "ibm_mean": 0.33644125,
+          "paired": {
+            "series": 120,
+            "mean": -2.6769561503971793e-07,
+            "worst_series": "181_SMD_id_4_Facility_tr_5000_1st_15144",
+            "worst": -1.76893782679044e-05,
+            "std": 2.0891749475742317e-06,
+            "error": 1.907147075601799e-07
+          }
+        },
+        "ensemble": {
+          "series": 120,
+          "mean": 0.487434484038304,
+          "source_mean": 0.5054017227704127,
+          "ibm_mean": 0.48743424999999996,
+          "paired": {
+            "series": 120,
+            "mean": 8.550006740278004e-09,
+            "worst_series": "184_SMD_id_7_Facility_tr_7119_1st_15849",
+            "worst": 4.4241721064430806e-06,
+            "std": 4.786872793013601e-07,
+            "error": 4.369797014402179e-08
+          }
+        }
+      },
+      "M": {
+        "time": {
+          "series": 20,
+          "mean": 0.2037288431311577,
+          "source_mean": 0.21594512339431696,
+          "ibm_mean": 0.20372949999999998,
+          "paired": {
+            "series": 20,
+            "mean": 4.1568526676361016e-10,
+            "worst_series": "081_LTDB_id_3_Medical_tr_500_1st_26",
+            "worst": 8.313705335272203e-09,
+            "std": 1.8590010274571328e-09,
+            "error": 4.1568526676361016e-10
+          }
+        },
+        "fft": {
+          "series": 20,
+          "mean": 0.20382476570604563,
+          "source_mean": 0.21701453278075256,
+          "ibm_mean": 0.2038245,
+          "paired": {
+            "series": 20,
+            "mean": -3.950464886326444e-08,
+            "worst_series": "081_LTDB_id_3_Medical_tr_500_1st_26",
+            "worst": -7.894857535495348e-07,
+            "std": 1.765278251877314e-07,
+            "error": 3.94728217039967e-08
+          }
+        },
+        "forecast": {
+          "series": 20,
+          "mean": 0.24105927280497377,
+          "source_mean": 0.24270236443794735,
+          "ibm_mean": 0.24110649999999997,
+          "paired": {
+            "series": 20,
+            "mean": -4.67215223200295e-05,
+            "worst_series": "148_SMAP_id_5_Sensor_tr_2011_1st_5060",
+            "worst": -0.0009342527804401465,
+            "std": 0.0002089031971962094,
+            "error": 4.6712174964776766e-05
+          }
+        },
+        "ensemble": {
+          "series": 20,
+          "mean": 0.2273837185791697,
+          "source_mean": 0.21441895871084538,
+          "ibm_mean": 0.22738399999999998,
+          "paired": {
+            "series": 20,
+            "mean": -5.459250276718813e-08,
+            "worst_series": "081_LTDB_id_3_Medical_tr_500_1st_26",
+            "worst": -9.911925293870638e-07,
+            "std": 2.2159561803058005e-07,
+            "error": 4.95502865432455e-08
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "linear-blocked+unroll-on+math-bundled+outputs-read+exp-table+gelu-fine+stride-2",
+    "settings": {
+      "LINEAR": "blocked",
+      "UNROLL": "on",
+      "MATH": "bundled",
+      "OUTPUTS": "read",
+      "EXP": "table",
+      "GELU": "fine",
+      "STRIDE": "2"
+    },
+    "build": {
+      "commit": "3598b1446bbae5892f86a5d38bce1f4418903e07",
+      "tree": "c517aa384465dfe06e00f843aa69f4eb97e5c0c5",
+      "dirty": false
+    },
+    "spike_check": {
+      "units_compared": 140,
+      "units_differing": 0
+    },
+    "instructions": {
+      "u_mean": 423891243.5,
+      "m_mean": 421856322.78236365,
+      "u_ratio": 0.4358761238323113,
+      "m_ratio": 0.4364117918924417
+    },
+    "vus_pr": {
+      "U": {
+        "time": {
+          "series": 120,
+          "mean": 0.45526312680033726,
+          "source_mean": 0.48297932957128925,
+          "ibm_mean": 0.45448325,
+          "paired": {
+            "series": 120,
+            "mean": 0.0007803665461224908,
+            "worst_series": "260_IOPS_id_1_WebService_tr_5000_1st_11804",
+            "worst": 0.05652983481366994,
+            "std": 0.009982627294696216,
+            "error": 0.0009112850254119815
+          }
+        },
+        "fft": {
+          "series": 120,
+          "mean": 0.45594937374310024,
+          "source_mean": 0.48364869268004823,
+          "ibm_mean": 0.45651933333333333,
+          "paired": {
+            "series": 120,
+            "mean": -0.0005700680533856394,
+            "worst_series": "467_UCR_id_165_Environment_tr_6166_1st_19280",
+            "worst": -0.14782947714923533,
+            "std": 0.01931551009759343,
+            "error": 0.0017632567650284557
+          }
+        },
+        "forecast": {
+          "series": 120,
+          "mean": 0.33064114381208604,
+          "source_mean": 0.3668543571312969,
+          "ibm_mean": 0.33644125,
+          "paired": {
+            "series": 120,
+            "mean": -0.005777307539106001,
+            "worst_series": "117_WSD_id_89_WebService_tr_3251_1st_3351",
+            "worst": 0.32324846827337184,
+            "std": 0.05034787901845948,
+            "error": 0.004596111510158553
+          }
+        },
+        "ensemble": {
+          "series": 120,
+          "mean": 0.4812618550755283,
+          "source_mean": 0.5025597131251868,
+          "ibm_mean": 0.48743424999999996,
+          "paired": {
+            "series": 120,
+            "mean": -0.00617262041276895,
+            "worst_series": "117_WSD_id_89_WebService_tr_3251_1st_3351",
+            "worst": 0.30589755429402055,
+            "std": 0.05776065528210558,
+            "error": 0.005272802305714859
+          }
+        }
+      },
+      "M": {
+        "time": {
+          "series": 20,
+          "mean": 0.20561589987572043,
+          "source_mean": 0.2172387466308976,
+          "ibm_mean": 0.20372949999999998,
+          "paired": {
+            "series": 20,
+            "mean": 0.0018870571602480242,
+            "worst_series": "015_MSL_id_14_Sensor_tr_575_1st_1250",
+            "worst": 0.029035308676797267,
+            "std": 0.006808595055091771,
+            "error": 0.0015224481374454125
+          }
+        },
+        "fft": {
+          "series": 20,
+          "mean": 0.20397302126392117,
+          "source_mean": 0.21717524634708837,
+          "ibm_mean": 0.2038245,
+          "paired": {
+            "series": 20,
+            "mean": 0.00014821605322662816,
+            "worst_series": "169_SMAP_id_26_Sensor_tr_1811_1st_4510",
+            "worst": -0.016612236350866616,
+            "std": 0.005479336623356443,
+            "error": 0.0012252169161429168
+          }
+        },
+        "forecast": {
+          "series": 20,
+          "mean": 0.09852298491914643,
+          "source_mean": 0.123805576261742,
+          "ibm_mean": 0.24110649999999997,
+          "paired": {
+            "series": 20,
+            "mean": -0.14258300940814736,
+            "worst_series": "116_TAO_id_1_Environment_tr_500_1st_3",
+            "worst": -0.7386581906919114,
+            "std": 0.2949260476614745,
+            "error": 0.06594746909063999
+          }
+        },
+        "ensemble": {
+          "series": 20,
+          "mean": 0.19335745607385804,
+          "source_mean": 0.1853916213052725,
+          "ibm_mean": 0.22738399999999998,
+          "paired": {
+            "series": 20,
+            "mean": -0.03402631709781443,
+            "worst_series": "125_TAO_id_10_Environment_tr_500_1st_9",
+            "worst": -0.2726085737019014,
+            "std": 0.07901578653836767,
+            "error": 0.01766846699954029
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "linear-blocked+unroll-on+math-bundled+outputs-read+exp-table+gelu-fine+aggregation-48",
+    "settings": {
+      "LINEAR": "blocked",
+      "UNROLL": "on",
+      "MATH": "bundled",
+      "OUTPUTS": "read",
+      "EXP": "table",
+      "GELU": "fine",
+      "AGGREGATION": "48"
+    },
+    "build": {
+      "commit": "3598b1446bbae5892f86a5d38bce1f4418903e07",
+      "tree": "c517aa384465dfe06e00f843aa69f4eb97e5c0c5",
+      "dirty": false
+    },
+    "spike_check": {
+      "units_compared": 140,
+      "units_differing": 0
+    },
+    "instructions": {
+      "u_mean": 458794996.1166667,
+      "m_mean": 454693245.7196363,
+      "u_ratio": 0.4717667269788577,
+      "m_ratio": 0.47038169966761156
+    },
+    "vus_pr": {
+      "U": {
+        "time": {
+          "series": 120,
+          "mean": 0.4520360503963079,
+          "source_mean": 0.4778102270631364,
+          "ibm_mean": 0.45448325,
+          "paired": {
+            "series": 120,
+            "mean": -0.002446709857906906,
+            "worst_series": "415_UCR_id_113_Medical_tr_3000_1st_8612",
+            "worst": -0.40158876804630234,
+            "std": 0.13885529302441543,
+            "error": 0.012675696036410345
+          }
+        },
+        "fft": {
+          "series": 120,
+          "mean": 0.4497898539712853,
+          "source_mean": 0.4741471624490918,
+          "ibm_mean": 0.45651933333333333,
+          "paired": {
+            "series": 120,
+            "mean": -0.006729587825200631,
+            "worst_series": "495_UCR_id_193_Environment_tr_2046_1st_6520",
+            "worst": 0.4474874153841606,
+            "std": 0.14232521640730209,
+            "error": 0.012992455254680622
+          }
+        },
+        "forecast": {
+          "series": 120,
+          "mean": 0.336418183655577,
+          "source_mean": 0.37154398359639795,
+          "ibm_mean": 0.33644125,
+          "paired": {
+            "series": 120,
+            "mean": -2.6769561503971793e-07,
+            "worst_series": "181_SMD_id_4_Facility_tr_5000_1st_15144",
+            "worst": -1.76893782679044e-05,
+            "std": 2.0891749475742317e-06,
+            "error": 1.907147075601799e-07
+          }
+        },
+        "ensemble": {
+          "series": 120,
+          "mean": 0.47382813156000164,
+          "source_mean": 0.4933454870758642,
+          "ibm_mean": 0.48743424999999996,
+          "paired": {
+            "series": 120,
+            "mean": -0.013606343928295583,
+            "worst_series": "495_UCR_id_193_Environment_tr_2046_1st_6520",
+            "worst": 0.3662212598205321,
+            "std": 0.11820446463361753,
+            "error": 0.01079054194627566
+          }
+        }
+      },
+      "M": {
+        "time": {
+          "series": 20,
+          "mean": 0.16294016951150223,
+          "source_mean": 0.1512137795339694,
+          "ibm_mean": 0.20372949999999998,
+          "paired": {
+            "series": 20,
+            "mean": -0.040788673203970185,
+            "worst_series": "106_SVDB_id_23_Medical_tr_37500_1st_121963",
+            "worst": -0.4796949598522059,
+            "std": 0.10852321067500241,
+            "error": 0.024266527620583622
+          }
+        },
+        "fft": {
+          "series": 20,
+          "mean": 0.16269478427264902,
+          "source_mean": 0.1513140079368204,
+          "ibm_mean": 0.2038245,
+          "paired": {
+            "series": 20,
+            "mean": -0.04113002093804549,
+            "worst_series": "106_SVDB_id_23_Medical_tr_37500_1st_121963",
+            "worst": -0.4887591745929347,
+            "std": 0.11171291685262963,
+            "error": 0.02497976760472617
+          }
+        },
+        "forecast": {
+          "series": 20,
+          "mean": 0.24105927280497377,
+          "source_mean": 0.24270236443794735,
+          "ibm_mean": 0.24110649999999997,
+          "paired": {
+            "series": 20,
+            "mean": -4.67215223200295e-05,
+            "worst_series": "148_SMAP_id_5_Sensor_tr_2011_1st_5060",
+            "worst": -0.0009342527804401465,
+            "std": 0.0002089031971962094,
+            "error": 4.6712174964776766e-05
+          }
+        },
+        "ensemble": {
+          "series": 20,
+          "mean": 0.23241424466013355,
+          "source_mean": 0.20786870813002967,
+          "ibm_mean": 0.22738399999999998,
+          "paired": {
+            "series": 20,
+            "mean": 0.005030471488461118,
+            "worst_series": "118_TAO_id_3_Environment_tr_500_1st_7",
+            "worst": 0.22025825566091772,
+            "std": 0.0775918300135603,
+            "error": 0.017350060640892926
+          }
+        }
+      }
+    }
+  }
+]
