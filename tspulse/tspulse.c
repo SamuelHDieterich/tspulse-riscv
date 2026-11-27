@@ -88,7 +88,7 @@ struct options {
 /// The first line of the counts CSV.
 #define COUNTS_HEADER "window,instructions\n"
 /// One line of the counts CSV.
-#define COUNTS_LINE "%u,%" PRIu64 "\n"
+#define COUNTS_LINE "%" PRIu32 ",%" PRIu64 "\n"
 #endif
 
 // The build's stride, 1 unless the build asks for more
@@ -107,7 +107,7 @@ _Static_assert(STRIDE >= 1, "STRIDE must be at least 1");
 #define ERRORS_HEADER "window,time,fft,forecast\n"
 
 // Nine significant digits are enough to read any float32 back exactly
-#define ERRORS_LINE "%u,%.9g,%.9g,%.9g\n"
+#define ERRORS_LINE "%" PRIu32 ",%.9g,%.9g,%.9g\n"
 
 // The usage line lists only the options this build has
 #ifdef __riscv
@@ -286,7 +286,7 @@ static int run_series(
     int failed = 0;
     for (uint32_t r = 0; r < reader->rows && !failed; r++) {
         if (rows_next(reader, row)) {
-            fprintf(stderr, "short read at row %u\n", r);
+            fprintf(stderr, "short read at row %" PRIu32 "\n", r);
             failed = 1;
             break;
         }
@@ -299,7 +299,7 @@ static int run_series(
 #if STRIDE > 1
             // Guarded so a STRIDE 1 build keeps the baseline's machine code. The anchor's errors are held but not written, and it is not counted
             if (window == anchor && window_run(&history, NULL, &held)) {
-                fprintf(stderr, "cannot run window %u\n", window);
+                fprintf(stderr, "cannot run window %" PRIu32 "\n", window);
                 failed = 1;
                 break;
             }
@@ -337,7 +337,7 @@ static int run_series(
         uint64_t after = instret_read();
 #endif
         if (run_failed) {
-            fprintf(stderr, "cannot dump window %u\n", window);
+            fprintf(stderr, "cannot dump window %" PRIu32 "\n", window);
             failed = 1;
             break;
         }
@@ -417,8 +417,8 @@ int main(int argc, char **argv) {
     }
     if (reader.rows <= CONTEXT_LENGTH) {
         fprintf(
-            stderr, "%s has %u rows, a window needs %d\n", options.rows_path,
-            reader.rows, WINDOW_LENGTH
+            stderr, "%s has %" PRIu32 " rows, a window needs %d\n",
+            options.rows_path, reader.rows, WINDOW_LENGTH
         );
         rows_close(&reader);
         return 1;
@@ -427,8 +427,9 @@ int main(int argc, char **argv) {
     if (options.start >= windows ||
         (options.has_stop && options.stop > windows)) {
         fprintf(
-            stderr, "windows are 0 to %u, so STOP is at most %u\n", windows - 1,
-            windows
+            stderr,
+            "windows are 0 to %" PRIu32 ", so STOP is at most %" PRIu32 "\n",
+            windows - 1, windows
         );
         rows_close(&reader);
         return 1;
@@ -526,7 +527,9 @@ int main(int argc, char **argv) {
         failed = 1;
     }
     if (options.has_dump_window && !dumped && !failed) {
-        fprintf(stderr, "window %u was not run\n", options.dump_window);
+        fprintf(
+            stderr, "window %" PRIu32 " was not run\n", options.dump_window
+        );
         failed = 1;
     }
 #endif

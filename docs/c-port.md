@@ -75,8 +75,15 @@ spike --isa=rv64gc_zicntr "$RISCV_PK" build/rv64/tspulse ROWS ERRORS --windows S
 ```
 
 `$RISCV_PK` is the proxy kernel (pk) the dev shell provides, since Spike does not search `PATH` for it.
-`--counts PATH` writes each window's instruction count to `PATH`. Only the RISC-V build has it.
+
+`--counts PATH` writes each window's instruction count to `PATH`. Only the RISC-V builds have it.
 
 Spike is slow: with `-g`, a window takes roughly a minute per channel, so a 55-channel window takes close to an hour.
 The instruction count does not depend on the computer, and is the number to compare.
 One window costs about 2.7 billion program instructions per channel with the dump build (`tspulse-dump`) and about 2.4 billion with the clean build (`tspulse`), whatever the series.
+
+`make TARGET=rv32` builds the same programs for rv32gc, without the profile program, in `build/rv32`, and `make TARGET=rv32 check` runs the weight check under Spike. Run its programs with the rv32 proxy kernel:
+
+```bash
+spike --isa=rv32gc_zicntr "$RISCV32_PK" build/rv32/tspulse ROWS ERRORS --windows START:STOP
+```

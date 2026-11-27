@@ -9,9 +9,9 @@
 #   S_SOURCES_V   files compiled for V, in place of the baseline files in S_REPLACES, or added to them when there is no S_REPLACES
 #   S_REPLACES    the baseline files that a value with S_SOURCES_V swaps out
 #   S_DEFINES_V   -D macros for V
-#   S_FLAGS_V     compiler flags for V, on both targets, so the host build keeps matching rv64 bit for bit
-#   S_HOST_FLAGS_V, S_RV64_FLAGS_V   compiler flags for V on one target
-#   S_NEWLIB_V    yes when V compiles newlib's math source into the rv64 program too, as the host build always does
+#   S_FLAGS_V     compiler flags for V, on every target, so the host build keeps matching the RISC-V builds bit for bit
+#   S_HOST_FLAGS_V, S_RV64_FLAGS_V   compiler flags for V on the host, or on both RISC-V targets
+#   S_NEWLIB_V    yes when V compiles newlib's math source into the RISC-V programs too, as the host build always does
 #   S_WEIGHTS_V   the generated weight set V builds with, as in int8 for build/generated/weights_int8.c, weights_int8_table.c and weights_int8.tdump; without it, the float set
 
 # ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀▀
@@ -126,7 +126,7 @@ VARIANT_SOURCES := $(foreach s,$(VARIANT_REPLACING),$($(s)_SOURCES_$($(s))))
 # The program's file list for this build, given the baseline's
 variant_sources = $(filter-out $(VARIANT_REPLACED),$(1)) $(VARIANT_SOURCES)
 
-# Any setting whose value asks for newlib's math makes the rv64 build compile it
+# Any setting whose value asks for newlib's math makes the RISC-V builds compile it
 VARIANT_NEWLIB := $(strip $(foreach s,$(SETTINGS),$($(s)_NEWLIB_$($(s)))))
 
 # The generated weight set's suffix, empty for the float set
@@ -134,6 +134,6 @@ VARIANT_WEIGHTS := $(strip $(foreach s,$(SETTINGS),$($(s)_WEIGHTS_$($(s)))))
 
 VARIANT_DEFINES := $(foreach s,$(SETTINGS),$($(s)_DEFINES_$($(s))))
 
-# The target's own flags come from the table's HOST or RV64 entries
+# The target's own flags come from the table's HOST or RV64 entries, and the RV64 entries apply to rv32 too
 VARIANT_TARGET := $(if $(filter host,$(TARGET)),HOST,RV64)
 VARIANT_FLAGS := $(foreach s,$(SETTINGS),$($(s)_FLAGS_$($(s))) $($(s)_$(VARIANT_TARGET)_FLAGS_$($(s))))

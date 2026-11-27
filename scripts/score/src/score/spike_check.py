@@ -52,7 +52,7 @@ from score.spike_results import (
 # ░█░░░█░█░█░█░▀▀█░░█░░█▀█░█░█░░█░░▀▀█
 # ░▀▀▀░▀▀▀░▀░▀░▀▀▀░░▀░░▀░▀░▀░▀░░▀░░▀▀▀
 
-# The ISA string the Makefile and `spike-matmul` run Spike with
+# The default ISA string for Spike, an rv64 one
 ISA = "rv64gc_zicntr"
 
 # The environment variable the dev shell puts pk's path in, since Spike does not search PATH for it
@@ -162,7 +162,7 @@ class Settings:
     host_build : Path
         The host build folder.
     rv64_build : Path
-        The rv64 build folder.
+        The RISC-V build folder, rv64 or rv32.
     pk : Path
         The proxy kernel Spike runs the program under.
     work : Path
@@ -171,6 +171,8 @@ class Settings:
         The label of this computer.
     machine_folder : Path
         Where the units' results go.
+    isa : str
+        The ISA string Spike runs the program with.
     jobs : int
         How many units run at once.
     commit : str
@@ -191,6 +193,7 @@ class Settings:
     work: Path
     machine: str
     machine_folder: Path
+    isa: str
     jobs: int
     commit: str
     tree: str
@@ -573,7 +576,7 @@ def _run_unit(unit: Unit, settings: Settings) -> UnitResult | str | None:
     spike_command = [
         "spike",
         "-g",
-        f"--isa={ISA}",
+        f"--isa={settings.isa}",
         str(settings.pk),
         str(settings.rv64_build / binary),
         str(unit.rows_path),
@@ -629,7 +632,7 @@ def _run_unit(unit: Unit, settings: Settings) -> UnitResult | str | None:
         machine=settings.machine,
         host_command=shlex.join(host_command),
         spike_command=shlex.join(spike_command),
-        isa=ISA,
+        isa=settings.isa,
         host_seconds=host_seconds,
         spike_seconds=spike_seconds,
         program_instructions=program,
@@ -738,7 +741,7 @@ def _check_spike(
     rv64_build: Annotated[
         Path,
         typer.Argument(
-            help="The rv64 build folder, holding `tspulse` and `tspulse-dump`."
+            help="The RISC-V build folder, rv64 or rv32 to match `--isa`, holding `tspulse` and `tspulse-dump`."
         ),
     ],
     stage: Annotated[
@@ -756,6 +759,12 @@ def _check_spike(
             help="Only this working series, by CSV name without `.csv`. Repeatable."
         ),
     ] = None,
+    isa: Annotated[
+        str,
+        typer.Option(
+            help="The ISA string Spike runs the program with, such as rv32gc_zicntr for an rv32 build. It must list zicntr, which the instruction counts come from."
+        ),
+    ] = ISA,
     jobs: Annotated[
         int,
         typer.Option(
@@ -786,20 +795,22 @@ def _check_spike(
         typer.Option(envvar="TSPULSE_DATA", help="The folder with the data."),
     ] = None,
 ) -> None:
-    """Run windows on the host build and under Spike on the rv64 build, and check they write the same bytes, skipping units already run with the same four binaries.
+    """Run windows on the host build and under Spike on the RISC-V build, and check they write the same bytes, skipping units already run with the same four binaries.
 
     Parameters
     ----------
     host_build : Path
         The host build folder.
     rv64_build : Path
-        The rv64 build folder.
+        The RISC-V build folder, rv64 or rv32.
     stage : Stage
         Which stages to run.
     reference : list[str] or None
         Reference labels to keep.
     series : list[str] or None
         Series stems to keep.
+    isa : str
+        The ISA string Spike runs the program with.
     jobs : int
         How many units run at once.
     machine : str or None
@@ -893,6 +904,7 @@ def _check_spike(
         work=work,
         machine=machine,
         machine_folder=machine_folder,
+        isa=isa,
         jobs=jobs,
         commit=commit,
         tree=tree,

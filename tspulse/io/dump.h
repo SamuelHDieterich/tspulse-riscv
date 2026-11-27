@@ -23,8 +23,7 @@
 #error "TSPULSE_DUMP and TSPULSE_PROFILE are different builds, define one"
 #endif
 #if defined(TSPULSE_PROFILE) && !(defined(__riscv) && __riscv_xlen == 64)
-#error                                                                         \
-    "TSPULSE_PROFILE reads the instruction counter, which only rv64 has, so it needs a 64-bit RISC-V target"
+#error "TSPULSE_PROFILE builds only for rv64 (make TARGET=rv64)"
 #endif
 
 // ░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀█░█▀█░▀█▀░█▀▀

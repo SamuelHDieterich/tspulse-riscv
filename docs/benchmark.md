@@ -23,6 +23,7 @@ A label is one build and its settings. Running it again with other binaries or s
 - `--series STEM` keeps only the named series, and `--window-cap N` the first N windows of each scope.
 - `--shard K/N` runs one computer's share, for N computers sharing the data folder. Their builds must match: compare `sha256sum tspulse/build/host/tspulse tspulse/build/rv64/tspulse "$RISCV_PK"`.
 - `--isa`, `--spike-option`, `--accuracy-on spike` and `--host-check off` are for builds the host can't match, such as vector ones.
+- An rv32 build, made with `make TARGET=rv32` from `tspulse/`, is counted with `RISCV_PK="$RISCV32_PK" benchmark run tspulse/build/<name>/host tspulse/build/<name>/rv32 --stage instructions --isa rv32gc_zicntr --label <name>-rv32`.
 
 Follow a run with `tail -f "$TSPULSE_DATA/results/benchmark/<label>/<machine>.log"`.
 Results go to `$TSPULSE_DATA/results/benchmark/<label>/`, and `collect` writes the tracked tables to `benchmark/results/<label>/`:

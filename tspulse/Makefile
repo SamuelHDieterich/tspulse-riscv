@@ -1,9 +1,9 @@
-# Builds the program and the weight check for the host (`make`) or for rv64gc, scalar (`make TARGET=rv64`)
+# Builds the program and the weight check for the host (`make`), for rv64gc (`make TARGET=rv64`) or for rv32gc (`make TARGET=rv32`), both scalar
 # `tspulse-dump` is the program with the code that writes inner outputs, which `check-model` runs, and `tspulse` carries none of it
 # `tspulse-profile`, built for rv64 only, reads the instruction counter at the same hooks to count instructions per module
 # `make stack` compiles the program with `-fcallgraph-info=su`, which leaves a `.ci` file of stack frame sizes beside each object, and links nothing; `make TARGET=rv64` also builds them
 # `make check` runs the weight check and compares its dump with the one export-weights wrote from the safetensors file, weights_int8.tdump on a QUANT build
-# `make check-qlinear` (QUANT builds only) builds `check-qlinear` and runs it, on rv64 under Spike: the build's quantized Linear against a reference on the same weights, bit for bit
+# `make check-qlinear` (QUANT builds only) builds `check-qlinear` and runs it, on the RISC-V builds under Spike: the build's quantized Linear against a reference on the same weights, bit for bit
 # `make approx-errors` (host only) builds `check-approx` and writes approx-errors.csv in the build's folder, as in build/host/approx-errors.csv, each exp and GELU approximation's error against double precision
 # Run inside the dev shell, after `download-weights`
 # Settings are Make variables listed in variants.mk, and `make settings` prints them with their values and defaults; `make LINEAR=blocked` would pick one
@@ -27,8 +27,16 @@ ARCH_FLAGS := -O3 -mfma --param avoid-fma-max-bits=0 -fno-tree-vectorize
 else ifeq ($(TARGET),rv64)
 CC := riscv64-none-elf-gcc
 ARCH_FLAGS := -march=rv64gc -mabi=lp64d -O3
+SPIKE_ISA := rv64gc_zicntr
+SPIKE_PK := $$RISCV_PK
+else ifeq ($(TARGET),rv32)
+CC := riscv32-none-elf-gcc
+# Same as rv64gc with only the width changed, the one library set the rv32 toolchain ships
+ARCH_FLAGS := -march=rv32gc -mabi=ilp32d -O3
+SPIKE_ISA := rv32gc_zicntr
+SPIKE_PK := $$RISCV32_PK
 else
-$(error unknown TARGET '$(TARGET)', expected host or rv64)
+$(error unknown TARGET '$(TARGET)', expected host, rv64 or rv32)
 endif
 
 # A command-line CFLAGS replaces the settings' flags and revin's -ffp-contract=off, so build.json would record flags the build never used
@@ -44,14 +52,14 @@ REVIN_FILE := kernels/revin.c
 REVIN_FLAGS := -ffp-contract=off
 
 # The host build always compiles newlib's erff and expf, because glibc's round differently and the host must match rv64 bit for bit
-# The rv64 build compiles them when a setting asks, to take fewer instructions per call than the toolchain's libm.a, which holds the same code
+# The RISC-V builds compile them when a setting asks, to take fewer instructions per call than the toolchain's libm.a, which holds the same code
 # Without __OBSOLETE_MATH=0, x86 takes newlib's old code path: sf_exp.c compiles to nothing and sf_erf.o needs __ieee754_expf
 # Only the machine/ folder is added to the include path, since newlib's whole libc/include would replace glibc's math.h
-# rv64 gets the same flags, which change nothing there: that machine/ieeefp.h is byte-identical to the cross toolchain's, and rv64gc already defaults to __OBSOLETE_MATH=0
+# The RISC-V builds get the same flags, which change nothing there: that machine/ieeefp.h is byte-identical to both cross toolchains', and rv64gc and rv32gc already default to __OBSOLETE_MATH=0
 NEWLIB_FILES := libm/math/sf_erf.c libm/common/sf_exp.c libm/common/sf_exp2_data.c libm/common/math_errf.c libm/common/math_err.c
 NEWLIB_FLAGS = -D__OBSOLETE_MATH=0 -I$(NEWLIB_HOST_INCLUDE) -I$(NEWLIB_SRC)/newlib/libm/common
 
-# Non-empty when this build compiles newlib's math: always on the host, and on rv64 when a setting asks
+# Non-empty when this build compiles newlib's math: always on the host, and on the RISC-V builds when a setting asks
 NEWLIB_LINKED := $(strip $(filter host,$(TARGET)) $(VARIANT_NEWLIB))
 
 # ░█▀▀░█▀█░█░█░█▀▄░█▀▀░█▀▀░█▀▀
@@ -158,12 +166,12 @@ settings:
 
 stack: $(STACK_OBJECTS)
 
-# Run the check program: on the host directly, on rv64 under Spike
+# Run the check program: on the host directly, on the RISC-V builds under Spike
 check: $(BUILD)/check-weights $(GENERATED_DUMP)
 ifeq ($(TARGET),host)
 	$(BUILD)/check-weights $(BUILD)/weights.tdump
 else
-	spike --isa=rv64gc_zicntr "$$RISCV_PK" $(BUILD)/check-weights $(BUILD)/weights.tdump
+	spike --isa=$(SPIKE_ISA) "$(SPIKE_PK)" $(BUILD)/check-weights $(BUILD)/weights.tdump
 endif
 # Pass only on 0 fail, 0 missing and 0 extra, because compare-reference exits 0 on missing records
 	status=0; compare-reference $(GENERATED_DUMP) $(BUILD)/weights.tdump --exact > $(BUILD)/compare.txt || status=$$?; \
@@ -183,12 +191,12 @@ ifneq ($(filter check-qlinear,$(MAKECMDGOALS)),)
 $(if $(filter $(QUANT_DEFAULT),$(QUANT)),$(error check-qlinear needs a QUANT build, got QUANT=$(QUANT)))
 endif
 
-# Run the quantized Linear check: on the host directly, on rv64 under Spike
+# Run the quantized Linear check: on the host directly, on the RISC-V builds under Spike
 check-qlinear: $(BUILD)/check-qlinear
 ifeq ($(TARGET),host)
 	$(BUILD)/check-qlinear
 else
-	spike --isa=rv64gc_zicntr "$$RISCV_PK" $(BUILD)/check-qlinear
+	spike --isa=$(SPIKE_ISA) "$(SPIKE_PK)" $(BUILD)/check-qlinear
 endif
 
 clean:

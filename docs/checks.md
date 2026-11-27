@@ -73,6 +73,7 @@ The reference stage runs the dump build on each of the 7 reference windows and c
 
 Each unit writes its result under `$TSPULSE_DATA/results/spike-check/<machine>/<unit>/`, and the command rewrites a tidy `results.csv` with one row per unit in `<machine>/` as units complete.
 `--machine NAME` labels the computer, so several can share the data folder. It defaults to the hostname.
+`--isa STRING` is the ISA Spike runs with, `rv64gc_zicntr` by default. For an rv32 build, run it with the rv32 proxy kernel and a machine name of its own, so the rv64 results stay: `RISCV_PK="$RISCV32_PK" check-spike build/host build/rv32 --isa rv32gc_zicntr --machine NAME`.
 
 A rerun resumes: a unit already run with the same four binaries is printed and skipped, and one run with different binaries reruns.
 `--redo` forces every selected unit to rerun.
