@@ -64,7 +64,7 @@ DUMP_BINARY = "tspulse-dump"
 
 # The roles the binaries' hashes are recorded under
 HOST_ROLE = "host"
-RV64_ROLE = "rv64"
+RISCV_ROLE = "riscv"
 
 # Where the row files, errors and dumps sit while a unit runs, under the git top level
 WORK_FOLDER = Path("tspulse/build/check-spike")
@@ -161,7 +161,7 @@ class Settings:
     ----------
     host_build : Path
         The host build folder.
-    rv64_build : Path
+    riscv_build : Path
         The RISC-V build folder, rv64 or rv32.
     pk : Path
         The proxy kernel Spike runs the program under.
@@ -188,7 +188,7 @@ class Settings:
     """
 
     host_build: Path
-    rv64_build: Path
+    riscv_build: Path
     pk: Path
     work: Path
     machine: str
@@ -578,7 +578,7 @@ def _run_unit(unit: Unit, settings: Settings) -> UnitResult | str | None:
         "-g",
         f"--isa={settings.isa}",
         str(settings.pk),
-        str(settings.rv64_build / binary),
+        str(settings.riscv_build / binary),
         str(unit.rows_path),
         str(spike_errors),
         *window_arguments,
@@ -589,7 +589,7 @@ def _run_unit(unit: Unit, settings: Settings) -> UnitResult | str | None:
     runs = []
     for side, command, stderr_path in (
         (HOST_ROLE, host_command, scratch / HOST_STDERR),
-        (RV64_ROLE, spike_command, result_folder / SPIKE_STDERR),
+        (RISCV_ROLE, spike_command, result_folder / SPIKE_STDERR),
     ):
         try:
             run = settings.processes.run(command, stderr_path)
@@ -738,7 +738,7 @@ def _check_spike(
             help="The host build folder, holding `tspulse` and `tspulse-dump`."
         ),
     ],
-    rv64_build: Annotated[
+    riscv_build: Annotated[
         Path,
         typer.Argument(
             help="The RISC-V build folder, rv64 or rv32 to match `--isa`, holding `tspulse` and `tspulse-dump`."
@@ -801,7 +801,7 @@ def _check_spike(
     ----------
     host_build : Path
         The host build folder.
-    rv64_build : Path
+    riscv_build : Path
         The RISC-V build folder, rv64 or rv32.
     stage : Stage
         Which stages to run.
@@ -850,7 +850,7 @@ def _check_spike(
         raise typer.Exit(1)
     binaries = {
         f"{role}/{binary}": build.resolve() / binary
-        for role, build in ((HOST_ROLE, host_build), (RV64_ROLE, rv64_build))
+        for role, build in ((HOST_ROLE, host_build), (RISCV_ROLE, riscv_build))
         for binary in (CLEAN_BINARY, DUMP_BINARY)
     }
     for path in [Path(pk), *binaries.values()]:
@@ -899,7 +899,7 @@ def _check_spike(
     _write_rows(pending)
     settings = Settings(
         host_build=host_build.resolve(),
-        rv64_build=rv64_build.resolve(),
+        riscv_build=riscv_build.resolve(),
         pk=Path(pk),
         work=work,
         machine=machine,

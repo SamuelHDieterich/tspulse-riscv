@@ -90,7 +90,7 @@ class Platform(StrEnum):
     HOST : str
         Natively, on the host build.
     SPIKE : str
-        Under Spike, on the rv64 build.
+        Under Spike, on the RISC-V build.
     """
 
     HOST = "host"
@@ -121,7 +121,7 @@ class LabelIdentity:
     Attributes
     ----------
     sha256 : dict[str, str]
-        The hashes of the host build's `tspulse`, the rv64 build's `tspulse` and pk, by role.
+        The hashes of the host build's `tspulse`, the RISC-V build's `tspulse` and pk, by role.
     scopes : list[str]
         The accuracy scopes.
     window_cap : int or None
@@ -141,7 +141,7 @@ class LabelIdentity:
     spike_options : list[str]
         The extra options Spike gets on the counted windows.
     build : dict or None
-        What the build is: the rv64 record's identity part under `rv64`, and the host record's `cflags` and `cc_version` under `host`. None for a label made by binaries without a record.
+        What the build is: the RISC-V record's identity part under `riscv`, and the host record's `cflags` and `cc_version` under `host`. None for a label made by binaries without a record.
     """
 
     sha256: dict[str, str]
@@ -204,7 +204,7 @@ class Provenance:
     build : str
         The builds' name.
     build_records : dict[str, dict]
-        The host's and the rv64 build's full records, by target.
+        The host's and the RISC-V build's full records, under `host` and `riscv`.
     """
 
     machine: str

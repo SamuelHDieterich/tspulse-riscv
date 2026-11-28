@@ -28,9 +28,12 @@ SETTINGS_KEY = "settings"
 AGGREGATION_SETTING = "aggregation"
 STRIDE_SETTING = "stride"
 
-# The targets a label's identity and a result keep their two build records under
+# The Make targets. `host` is also the key a label's identity and a result keep the host build's record under
 HOST_TARGET = "host"
 RV64_TARGET = "rv64"
+
+# The key a label's identity and a result keep the RISC-V build's record under, for an rv64 and an rv32 build alike
+RISCV_KEY = "riscv"
 
 # The stride a build has when its record names none
 DEFAULT_STRIDE = 1
@@ -72,7 +75,7 @@ class BuildRecord:
     name : str
         The build's name, from its non-default settings.
     target : str
-        `host` or `rv64`.
+        `host`, `rv64` or `rv32`.
     settings : dict[str, str]
         Each setting's lower-case name and its value.
     cc : str
@@ -170,7 +173,7 @@ def _build_parts(name: str, target: str) -> tuple[str, ...]:
     name : str
         The build's name.
     target : str
-        `host` or `rv64`.
+        `host`, `rv64` or `rv32`.
 
     Returns
     -------
@@ -193,7 +196,7 @@ def build_path(source: Path, name: str, target: str) -> Path:
     name : str
         The build's name.
     target : str
-        `host` or `rv64`.
+        `host`, `rv64` or `rv32`.
 
     Returns
     -------

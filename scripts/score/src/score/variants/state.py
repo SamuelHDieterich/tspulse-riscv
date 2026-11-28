@@ -25,7 +25,7 @@ from score.build_record import (
     BUILD_FILE,
     DEFAULT_STRIDE,
     NAME_KEY,
-    RV64_TARGET,
+    RISCV_KEY,
     SETTINGS_KEY,
     STRIDE_SETTING,
     build_stride,
@@ -36,7 +36,7 @@ from score.spike_check import (
     CLEAN_BINARY,
     HELD_GROUP,
     HOST_ROLE,
-    RV64_ROLE,
+    RISCV_ROLE,
     WORKING_GROUP,
     Group,
 )
@@ -576,9 +576,11 @@ def binaries_problem(folder: Path, host_sha256: str, rv64_sha256: str) -> str | 
         return f"cannot read the label's identity: {error}"
     if identity is None:
         return None
+
+    # Variants only build rv64, so the label's RISC-V hash is the rv64 one
     differing = [
         role
-        for role, built in ((HOST_ROLE, host_sha256), (RV64_ROLE, rv64_sha256))
+        for role, built in ((HOST_ROLE, host_sha256), (RISCV_ROLE, rv64_sha256))
         if identity.sha256.get(role) != built
     ]
     if differing:
@@ -602,7 +604,7 @@ def label_stride(identity: LabelIdentity | None) -> int:
 
     if identity is None or identity.build is None:
         return DEFAULT_STRIDE
-    return build_stride(identity.build[RV64_TARGET][SETTINGS_KEY])
+    return build_stride(identity.build[RISCV_KEY][SETTINGS_KEY])
 
 
 def stack_name(identity: LabelIdentity) -> str:
@@ -624,7 +626,7 @@ def stack_name(identity: LabelIdentity) -> str:
         When the build's name doesn't end with `+stride-N`.
     """
 
-    name = identity.build[RV64_TARGET][NAME_KEY]
+    name = identity.build[RISCV_KEY][NAME_KEY]
     suffix = f"+{STRIDE_SETTING}-{label_stride(identity)}"
     if not name.endswith(suffix):
         raise ValueError(
@@ -698,7 +700,7 @@ def missing_stages(
     if group == HELD_GROUP:
         return missing
     if label_stride(identity) == DEFAULT_STRIDE:
-        if identity.sha256.get(RV64_ROLE) != profile:
+        if identity.sha256.get(RISCV_ROLE) != profile:
             missing.append(VariantStage.PROFILE)
         return missing
     try:

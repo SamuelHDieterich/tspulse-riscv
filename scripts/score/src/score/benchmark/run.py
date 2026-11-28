@@ -52,7 +52,7 @@ from score.benchmark.units import (
 )
 from score.build_record import (
     HOST_TARGET,
-    RV64_TARGET,
+    RISCV_KEY,
     BuildRecord,
     BuildRecordError,
     build_stride,
@@ -67,7 +67,7 @@ from score.spike_check import (
     HOST_ROLE,
     ISA,
     PK_VARIABLE,
-    RV64_ROLE,
+    RISCV_ROLE,
     _git,
     _sha256,
     _top_level,
@@ -245,25 +245,25 @@ def read_checked_build(folder: Path, binaries: tuple[str, ...]) -> BuildRecord:
     return record
 
 
-def _label_identity_build(host: BuildRecord, rv64: BuildRecord) -> dict[str, object]:
+def _label_identity_build(host: BuildRecord, riscv: BuildRecord) -> dict[str, object]:
     """Take what a label's identity keeps of the two builds.
 
     Parameters
     ----------
     host : BuildRecord
         The host build's record.
-    rv64 : BuildRecord
-        The rv64 build's record.
+    riscv : BuildRecord
+        The RISC-V build's record.
 
     Returns
     -------
     dict[str, object]
-        The rv64 record's identity part, and only the compiler and flags of the host, which the rv64 record already fixes the rest of.
+        The RISC-V record's identity part, and only the compiler and flags of the host, which the RISC-V record already fixes the rest of.
     """
 
     return {
         HOST_TARGET: {"cflags": host.cflags, "cc_version": host.cc_version},
-        RV64_TARGET: identity_part(rv64),
+        RISCV_KEY: identity_part(riscv),
     }
 
 
@@ -407,10 +407,10 @@ def run(
     host_build: Annotated[
         Path, typer.Argument(help="The host build folder, holding `tspulse`.")
     ],
-    rv64_build: Annotated[
+    riscv_build: Annotated[
         Path,
         typer.Argument(
-            help="The rv64 build folder, holding `tspulse` built with `--counts`."
+            help="The RISC-V build folder, rv64 or rv32 to match `--isa`, holding `tspulse` built with `--counts`."
         ),
     ],
     label: Annotated[
@@ -515,8 +515,8 @@ def run(
     ----------
     host_build : Path
         The host build folder.
-    rv64_build : Path
-        The rv64 build folder.
+    riscv_build : Path
+        The RISC-V build folder, rv64 or rv32.
     label : str or None
         The benchmark label, or the build's name.
     stage : Stage
@@ -597,7 +597,7 @@ def run(
         raise typer.Exit(EXIT_REFUSED)
     binaries = {
         HOST_ROLE: host_build.resolve() / CLEAN_BINARY,
-        RV64_ROLE: rv64_build.resolve() / CLEAN_BINARY,
+        RISCV_ROLE: riscv_build.resolve() / CLEAN_BINARY,
         PK_ROLE: Path(pk),
     }
     for path in binaries.values():
@@ -608,18 +608,18 @@ def run(
 
     # The builds' records, which the binaries must match and which both builds must agree on, so a result never carries options that didn't produce it
     host_record = read_checked_build(host_build.resolve(), (CLEAN_BINARY,))
-    rv64_record = read_checked_build(rv64_build.resolve(), (CLEAN_BINARY,))
+    riscv_record = read_checked_build(riscv_build.resolve(), (CLEAN_BINARY,))
     if (host_record.name, host_record.settings) != (
-        rv64_record.name,
-        rv64_record.settings,
+        riscv_record.name,
+        riscv_record.settings,
     ):
         typer.echo(
-            f"The host build is {host_record.name} {host_record.settings} and the rv64 build is {rv64_record.name} {rv64_record.settings}: build both with the same settings.",
+            f"The host build is {host_record.name} {host_record.settings} and the RISC-V build is {riscv_record.name} {riscv_record.settings}: build both with the same settings.",
             err=True,
         )
         raise typer.Exit(EXIT_REFUSED)
     if label is None:
-        label = _folder_name(rv64_record.name, "--label")
+        label = _folder_name(riscv_record.name, "--label")
 
     # Step 3: the series asked for, checked before the label's folder is made
     top = _top_level()
@@ -647,17 +647,17 @@ def run(
             _git(top, "status", "--porcelain", "--", ".", f":(exclude){TABLES_FOLDER}")
         ),
         sha256=sha256,
-        build=rv64_record.name,
+        build=riscv_record.name,
         build_records={
             HOST_TARGET: asdict(host_record),
-            RV64_TARGET: asdict(rv64_record),
+            RISCV_KEY: asdict(riscv_record),
         },
     )
     settings = Settings(
         label=label,
         label_folder=label_folder,
         host_binary=binaries[HOST_ROLE],
-        rv64_binary=binaries[RV64_ROLE],
+        riscv_binary=binaries[RISCV_ROLE],
         pk=binaries[PK_ROLE],
         work=(work or top / WORK_FOLDER).resolve(),
         isa=isa,
@@ -665,7 +665,7 @@ def run(
         accuracy_on=accuracy_on,
         host_check=host_check,
         provenance=provenance,
-        stride=build_stride(rv64_record.settings),
+        stride=build_stride(riscv_record.settings),
     )
     settings.work.mkdir(parents=True, exist_ok=True)
 
@@ -681,7 +681,7 @@ def run(
         accuracy_on=accuracy_on,
         host_check=host_check,
         spike_options=spike_options,
-        build=_label_identity_build(host_record, rv64_record),
+        build=_label_identity_build(host_record, riscv_record),
     )
     _check_label(label_folder, identity, redo, log)
 

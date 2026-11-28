@@ -61,7 +61,7 @@ from score.benchmark.units import (
     accuracy_units,
     instruction_units,
 )
-from score.build_record import RV64_TARGET, SETTINGS_KEY, build_aggregation
+from score.build_record import RISCV_KEY, SETTINGS_KEY, build_aggregation
 from score.layout import BENCHMARK_FOLDER, MODEL_FOLDER
 from score.pipeline import AGGREGATION_LENGTH, load_model, load_series
 from score.series_check import _find_series
@@ -233,7 +233,7 @@ def _score_series(
             aggregation_length = (
                 AGGREGATION_LENGTH
                 if identity.build is None
-                else build_aggregation(identity.build[RV64_TARGET][SETTINGS_KEY])
+                else build_aggregation(identity.build[RISCV_KEY][SETTINGS_KEY])
             )
             if one.channels not in models:
                 models[one.channels] = load_model(data / MODEL_FOLDER, one.channels)

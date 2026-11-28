@@ -492,7 +492,7 @@ def run_variant(
             VariantStage.RUN,
             lambda: run(
                 host_build=built.host_folder,
-                rv64_build=built.rv64_folder,
+                riscv_build=built.rv64_folder,
                 label=label,
                 jobs=options.jobs,
                 spike_jobs=options.spike_jobs,

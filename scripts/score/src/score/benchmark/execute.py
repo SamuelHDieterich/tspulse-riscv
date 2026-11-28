@@ -74,8 +74,8 @@ class Settings:
         Where the label's results go, shared by every machine.
     host_binary : Path
         The host build's `tspulse`.
-    rv64_binary : Path
-        The rv64 build's `tspulse`.
+    riscv_binary : Path
+        The RISC-V build's `tspulse`.
     pk : Path
         The proxy kernel Spike runs the program under.
     work : Path
@@ -91,7 +91,7 @@ class Settings:
     provenance : Provenance
         The machine, the worktree's state and the binaries' hashes, saved with every result.
     stride : int
-        The rv64 build's `STRIDE`, 1 for a build without one.
+        The RISC-V build's `STRIDE`, 1 for a build without one.
     processes : Processes
         The programs started so far.
     """
@@ -99,7 +99,7 @@ class Settings:
     label: str
     label_folder: Path
     host_binary: Path
-    rv64_binary: Path
+    riscv_binary: Path
     pk: Path
     work: Path
     isa: str
@@ -137,7 +137,7 @@ class Settings:
         Returns
         -------
         list[str]
-            `spike [options] --isa=ISA PK RV64_TSPULSE`.
+            `spike [options] --isa=ISA PK RISCV_TSPULSE`.
         """
 
         return [
@@ -145,7 +145,7 @@ class Settings:
             *options,
             f"--isa={self.isa}",
             str(self.pk),
-            str(self.rv64_binary),
+            str(self.riscv_binary),
         ]
 
 

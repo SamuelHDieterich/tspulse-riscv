@@ -105,7 +105,7 @@ class UnitResult:
     dirty : bool
         Whether the worktree had uncommitted changes.
     sha256 : dict[str, str]
-        The four binaries' hashes, by role: `host/tspulse`, `host/tspulse-dump`, `rv64/tspulse`, `rv64/tspulse-dump`.
+        The four binaries' hashes, by role: `host/tspulse`, `host/tspulse-dump`, `riscv/tspulse`, `riscv/tspulse-dump`.
     jobs : int
         How many units the call allowed at once, which bears on the wall times.
     """

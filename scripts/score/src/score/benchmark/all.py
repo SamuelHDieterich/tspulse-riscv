@@ -87,7 +87,7 @@ def run_all(**options: Any) -> None:
     # Step 1: the log `run` appends to, so both halves read as one. Without `--label` the label is the build's name, which the log needs before `run` reads it
     if options["label"] is None:
         options["label"] = read_checked_build(
-            options["rv64_build"].resolve(), (CLEAN_BINARY,)
+            options["riscv_build"].resolve(), (CLEAN_BINARY,)
         ).name
     label = _folder_name(options["label"], "--label")
     machine = options["machine"]
